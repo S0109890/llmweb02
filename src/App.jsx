@@ -11,9 +11,12 @@ function App() {
   // CCTV State
   const [cctvs, setCctvs] = useState([])
   const [cctvLoading, setCctvLoading] = useState(true)
+  const [snowfallCctv, setSnowfallCctv] = useState(null)
+  const [snowfallLoading, setSnowfallLoading] = useState(true)
   const videoRefs = useRef([])
+  const snowfallVideoRef = useRef(null)
 
-  // CCTV 데이터 가져오기
+  // 하천 CCTV 데이터 가져오기
   useEffect(() => {
     async function fetchCctvs() {
       try {
@@ -29,7 +32,23 @@ function App() {
     fetchCctvs()
   }, [])
 
-  // HLS 스트림 설정
+  // 한라산 적설 CCTV 데이터 가져오기
+  useEffect(() => {
+    async function fetchSnowfallCctv() {
+      try {
+        const r = await fetch('/api/snowfall-cctv')
+        const data = await r.json()
+        setSnowfallCctv(data.cctv)
+      } catch (error) {
+        console.error('Failed to fetch snowfall CCTV:', error)
+      } finally {
+        setSnowfallLoading(false)
+      }
+    }
+    fetchSnowfallCctv()
+  }, [])
+
+  // HLS 스트림 설정 (하천 CCTV)
   useEffect(() => {
     if (cctvs.length === 0) return
 
@@ -63,6 +82,36 @@ function App() {
       hlsInstances.forEach(hls => hls.destroy())
     }
   }, [cctvs])
+
+  // HLS 스트림 설정 (한라산 적설 CCTV)
+  useEffect(() => {
+    if (!snowfallCctv || !snowfallCctv.cctvUrl) return
+
+    const video = snowfallVideoRef.current
+    const proxiedUrl = `/api/cctv-proxy?url=${encodeURIComponent(snowfallCctv.cctvUrl)}`
+
+    if (video && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      })
+      hls.loadSource(proxiedUrl)
+      hls.attachMedia(video)
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(err => console.log('Autoplay prevented:', err))
+      })
+
+      return () => {
+        hls.destroy()
+      }
+    } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari native support
+      video.src = proxiedUrl
+      video.addEventListener('loadedmetadata', () => {
+        video.play().catch(err => console.log('Autoplay prevented:', err))
+      })
+    }
+  }, [snowfallCctv])
 
   // Gemini Chat 함수
   async function ask() {
@@ -123,6 +172,38 @@ function App() {
                 )}
               </div>
             ))}
+          </div>
+        )}
+      </section>
+
+      {/* 한라산 적설 CCTV 섹션 */}
+      <section style={{ marginBottom: '40px' }}>
+        <h2>한라산 적설 CCTV</h2>
+        {snowfallLoading ? (
+          <p>Loading snowfall CCTV data...</p>
+        ) : !snowfallCctv ? (
+          <p>한라산 CCTV 데이터를 불러올 수 없습니다.</p>
+        ) : (
+          <div style={{ border: '1px solid #ccc', padding: '10px', borderRadius: '8px' }}>
+            <h3>{snowfallCctv.spotNm || '한라산 CCTV'}</h3>
+            <p>지점구분: {snowfallCctv.spotSe || 'N/A'}</p>
+            <p>위치: {snowfallCctv.laCrdnt}, {snowfallCctv.loCrdnt}</p>
+            {snowfallCctv.cctvUrl ? (
+              <div>
+                <video
+                  ref={snowfallVideoRef}
+                  controls
+                  muted
+                  playsInline
+                  style={{ width: '100%', height: '400px', borderRadius: '4px', backgroundColor: '#000' }}
+                />
+                <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  영상이 보이지 않으면 <a href={snowfallCctv.cctvUrl} target="_blank" rel="noopener noreferrer">직접 링크</a>를 사용하세요
+                </p>
+              </div>
+            ) : (
+              <p>영상을 사용할 수 없습니다.</p>
+            )}
           </div>
         )}
       </section>
