@@ -1,3 +1,17 @@
+async function callGemini(prompt, apiKey, model = 'gemini-1.5-flash-8b') {
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      }),
+    }
+  );
+  return r;
+}
+
 export default async function handler(req, res) {
   // CORS 헤더 추가
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,16 +40,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-        }),
-      }
-    );
+    let r = await callGemini(prompt, apiKey);
+
+    // 503 에러 시 재시도
+    if (r.status === 503) {
+      console.log('503 error, retrying after 2 seconds...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      r = await callGemini(prompt, apiKey);
+    }
 
     if (!r.ok) {
       const errorText = await r.text();
