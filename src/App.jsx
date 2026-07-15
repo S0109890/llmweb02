@@ -77,11 +77,11 @@ function App() {
                       playsInline
                       style={{ width: '100%', height: '300px', borderRadius: '4px', backgroundColor: '#000' }}
                     >
-                      <source src={cctv.cctvUrl} type="application/x-mpegURL" />
+                      <source src={`/api/cctv-proxy?url=${encodeURIComponent(cctv.cctvUrl)}`} type="application/x-mpegURL" />
                       브라우저가 HLS 스트리밍을 지원하지 않습니다.
                     </video>
                     <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                      영상이 보이지 않으면 <a href={cctv.cctvUrl} target="_blank" rel="noopener noreferrer">여기</a>를 클릭하세요
+                      영상이 보이지 않으면 <a href={cctv.cctvUrl} target="_blank" rel="noopener noreferrer">직접 링크</a>를 사용하세요
                     </p>
                   </div>
                 ) : (
