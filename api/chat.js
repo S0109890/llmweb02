@@ -1,14 +1,16 @@
-async function callGemini(prompt, apiKey, model = 'gemini-1.5-flash-8b') {
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
-      }),
-    }
-  );
+async function callGemini(prompt, apiKey, model = 'gemini-1.5-flash') {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  console.log('Calling Gemini API:', model, 'URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
+
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }]
+    }),
+  });
+
+  console.log('Gemini API response status:', r.status);
   return r;
 }
 
