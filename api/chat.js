@@ -1,4 +1,4 @@
-async function callGemini(prompt, apiKey, model = 'gemini-1.5-flash') {
+async function callGemini(prompt, apiKey, model = 'gemini-3.5-flash') {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   console.log('Calling Gemini API:', model, 'URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
 
