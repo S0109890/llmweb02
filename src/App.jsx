@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import Hls from 'hls.js'
 import './App.css'
 
 function App() {
@@ -10,6 +11,7 @@ function App() {
   // CCTV State
   const [cctvs, setCctvs] = useState([])
   const [cctvLoading, setCctvLoading] = useState(true)
+  const videoRefs = useRef([])
 
   // CCTV 데이터 가져오기
   useEffect(() => {
@@ -26,6 +28,41 @@ function App() {
     }
     fetchCctvs()
   }, [])
+
+  // HLS 스트림 설정
+  useEffect(() => {
+    if (cctvs.length === 0) return
+
+    const hlsInstances = []
+
+    cctvs.slice(0, 2).forEach((cctv, idx) => {
+      const video = videoRefs.current[idx]
+      const proxiedUrl = `/api/cctv-proxy?url=${encodeURIComponent(cctv.cctvUrl)}`
+
+      if (video && Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+        })
+        hls.loadSource(proxiedUrl)
+        hls.attachMedia(video)
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(err => console.log('Autoplay prevented:', err))
+        })
+        hlsInstances.push(hls)
+      } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native support
+        video.src = proxiedUrl
+        video.addEventListener('loadedmetadata', () => {
+          video.play().catch(err => console.log('Autoplay prevented:', err))
+        })
+      }
+    })
+
+    return () => {
+      hlsInstances.forEach(hls => hls.destroy())
+    }
+  }, [cctvs])
 
   // Gemini Chat 함수
   async function ask() {
@@ -71,15 +108,12 @@ function App() {
                 {cctv.cctvUrl ? (
                   <div>
                     <video
+                      ref={el => videoRefs.current[idx] = el}
                       controls
-                      autoPlay
                       muted
                       playsInline
                       style={{ width: '100%', height: '300px', borderRadius: '4px', backgroundColor: '#000' }}
-                    >
-                      <source src={`/api/cctv-proxy?url=${encodeURIComponent(cctv.cctvUrl)}`} type="application/x-mpegURL" />
-                      브라우저가 HLS 스트리밍을 지원하지 않습니다.
-                    </video>
+                    />
                     <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
                       영상이 보이지 않으면 <a href={cctv.cctvUrl} target="_blank" rel="noopener noreferrer">직접 링크</a>를 사용하세요
                     </p>
