@@ -44,10 +44,15 @@ export default async function handler(req, res) {
   try {
     let r = await callGemini(prompt, apiKey);
 
-    // 503 에러 시 재시도
-    if (r.status === 503) {
-      console.log('503 error, retrying after 2 seconds...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    // 503 에러 시 최대 3회 재시도 (exponential backoff)
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (r.status === 503 && retryCount < maxRetries) {
+      retryCount++;
+      const delay = Math.pow(2, retryCount) * 1000; // 2초, 4초, 8초
+      console.log(`503 error, retry ${retryCount}/${maxRetries} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
       r = await callGemini(prompt, apiKey);
     }
 
