@@ -66,16 +66,24 @@ function App() {
             {cctvs.slice(0, 2).map((cctv, idx) => (
               <div key={idx} style={{ border: '1px solid #ccc', padding: '10px', borderRadius: '8px' }}>
                 <h3>{cctv.spotNm || `CCTV ${idx + 1}`}</h3>
-                <p>지점구분: {cctv.spotType || 'N/A'}</p>
-                <p>위치: {cctv.lat}, {cctv.lon}</p>
+                <p>지점구분: {cctv.spotSe || 'N/A'}</p>
+                <p>위치: {cctv.laCrdnt}, {cctv.loCrdnt}</p>
                 {cctv.cctvUrl ? (
-                  <iframe
-                    src={cctv.cctvUrl}
-                    width="100%"
-                    height="300"
-                    style={{ border: 'none', borderRadius: '4px' }}
-                    title={`CCTV ${idx + 1}`}
-                  />
+                  <div>
+                    <video
+                      controls
+                      autoPlay
+                      muted
+                      playsInline
+                      style={{ width: '100%', height: '300px', borderRadius: '4px', backgroundColor: '#000' }}
+                    >
+                      <source src={cctv.cctvUrl} type="application/x-mpegURL" />
+                      브라우저가 HLS 스트리밍을 지원하지 않습니다.
+                    </video>
+                    <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                      영상이 보이지 않으면 <a href={cctv.cctvUrl} target="_blank" rel="noopener noreferrer">여기</a>를 클릭하세요
+                    </p>
+                  </div>
                 ) : (
                   <p>영상을 사용할 수 없습니다.</p>
                 )}
