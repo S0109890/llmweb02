@@ -112,6 +112,48 @@ app.get('/api/snowfall-cctv', async (req, res) => {
   }
 });
 
+// ITS CCTV API
+app.get('/api/its-cctv', async (req, res) => {
+  try {
+    const apiKey = process.env.ITS_API_KEY;
+
+    const params = new URLSearchParams({
+      apiKey: apiKey,
+      type: 'ex',
+      cctvType: '1',
+      minX: '126.1',
+      maxX: '126.9',
+      minY: '33.1',
+      maxY: '33.6',
+      getType: 'json'
+    });
+
+    const url = `https://openapi.its.go.kr:9443/cctvInfo?${params.toString()}`;
+
+    const r = await fetch(url);
+
+    if (!r.ok) {
+      const errorText = await r.text();
+      console.error('ITS API error:', r.status, errorText);
+      throw new Error(`ITS API error: ${r.status}`);
+    }
+
+    const data = await r.json();
+    console.log('ITS CCTV API Response:', JSON.stringify(data).substring(0, 500));
+
+    const cctvList = data?.response?.data || [];
+    const selectedCctv = cctvList[0] || null;
+
+    res.status(200).json({
+      cctv: selectedCctv,
+      total: cctvList.length
+    });
+  } catch (error) {
+    console.error('Error calling ITS CCTV API:', error);
+    res.status(500).json({ error: 'Failed to get ITS CCTV data' });
+  }
+});
+
 // CCTV Proxy
 app.get('/api/cctv-proxy', async (req, res) => {
   const { url, base } = req.query;
@@ -183,5 +225,6 @@ app.listen(PORT, () => {
   console.log(`   - POST http://localhost:${PORT}/api/chat`);
   console.log(`   - GET  http://localhost:${PORT}/api/cctv`);
   console.log(`   - GET  http://localhost:${PORT}/api/snowfall-cctv`);
+  console.log(`   - GET  http://localhost:${PORT}/api/its-cctv`);
   console.log(`   - GET  http://localhost:${PORT}/api/cctv-proxy`);
 });

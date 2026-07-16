@@ -1,0 +1,68 @@
+export default async function handler(req, res) {
+  // CORS 헤더 추가
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const apiKey = process.env.ITS_API_KEY;
+
+    if (!apiKey) {
+      console.error('ITS_API_KEY is not set');
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    // 제주도 전체 영역 좌표 (경도: 126.1~126.9, 위도: 33.1~33.6)
+    const params = new URLSearchParams({
+      apiKey: apiKey,
+      type: 'ex', // 고속도로
+      cctvType: '1', // 실시간 스트리밍 HLS
+      minX: '126.1',
+      maxX: '126.9',
+      minY: '33.1',
+      maxY: '33.6',
+      getType: 'json'
+    });
+
+    const url = `https://openapi.its.go.kr:9443/cctvInfo?${params.toString()}`;
+
+    const r = await fetch(url);
+
+    if (!r.ok) {
+      const errorText = await r.text();
+      console.error('ITS API error:', r.status, errorText);
+      return res.status(r.status).json({
+        error: `ITS API error: ${r.status}`,
+        details: errorText
+      });
+    }
+
+    const data = await r.json();
+    console.log('ITS CCTV API Response:', JSON.stringify(data).substring(0, 500));
+
+    // API 응답 구조에 맞게 파싱
+    const cctvList = data?.response?.data || [];
+
+    // 첫 번째 CCTV 선택
+    const selectedCctv = cctvList[0] || null;
+
+    res.status(200).json({
+      cctv: selectedCctv,
+      total: cctvList.length
+    });
+  } catch (error) {
+    console.error('Error calling ITS CCTV API:', error);
+    res.status(500).json({
+      error: 'Failed to get ITS CCTV data',
+      message: error.message
+    });
+  }
+}
