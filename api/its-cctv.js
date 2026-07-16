@@ -1,3 +1,8 @@
+// 서버 측 캐시 (10분간 유효)
+let cachedData = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 10 * 60 * 1000; // 10분
+
 export default async function handler(req, res) {
   // CORS 헤더 추가
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,6 +15,12 @@ export default async function handler(req, res) {
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // 캐시 확인
+  if (cachedData && Date.now() - cacheTimestamp < CACHE_TTL) {
+    console.log('ITS CCTV: Returning cached data');
+    return res.status(200).json(cachedData);
   }
 
   try {
@@ -62,10 +73,16 @@ export default async function handler(req, res) {
     // 첫 번째 CCTV 선택
     const selectedCctv = cctvList[0] || null;
 
-    res.status(200).json({
+    const result = {
       cctv: selectedCctv,
       total: cctvList.length
-    });
+    };
+
+    // 캐시 저장
+    cachedData = result;
+    cacheTimestamp = Date.now();
+
+    res.status(200).json(result);
   } catch (error) {
     console.error('Error calling ITS CCTV API:', error);
     res.status(500).json({
