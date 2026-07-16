@@ -20,15 +20,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // 제주도 전체 영역 좌표 (경도: 126.1~126.9, 위도: 33.1~33.6)
+    // 수도권 영역 좌표 (제주도에는 고속도로 CCTV가 없어서 수도권으로 변경)
     const params = new URLSearchParams({
       apiKey: apiKey,
       type: 'ex', // 고속도로
       cctvType: '1', // 실시간 스트리밍 HLS
-      minX: '126.1',
-      maxX: '126.9',
-      minY: '33.1',
-      maxY: '33.6',
+      minX: '126.5',
+      maxX: '127.5',
+      minY: '37.0',
+      maxY: '37.8',
       getType: 'json'
     });
 

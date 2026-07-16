@@ -117,14 +117,15 @@ app.get('/api/its-cctv', async (req, res) => {
   try {
     const apiKey = process.env.ITS_API_KEY;
 
+    // 수도권 영역 좌표 (제주도에는 고속도로 CCTV가 없어서 수도권으로 변경)
     const params = new URLSearchParams({
       apiKey: apiKey,
       type: 'ex',
       cctvType: '1',
-      minX: '126.1',
-      maxX: '126.9',
-      minY: '33.1',
-      maxY: '33.6',
+      minX: '126.5',
+      maxX: '127.5',
+      minY: '37.0',
+      maxY: '37.8',
       getType: 'json'
     });
 
