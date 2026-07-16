@@ -45,14 +45,21 @@ export default async function handler(req, res) {
 
     const url = `https://openapi.its.go.kr:9443/cctvInfo?${params.toString()}`;
 
-    // 30초 타임아웃 설정 (ITS API가 느릴 수 있음)
+    // fetch 옵션에 긴 타임아웃 설정
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초
 
     try {
-      var r = await fetch(url, { signal: controller.signal });
+      // keepalive와 긴 타임아웃 설정
+      var r = await fetch(url, {
+        signal: controller.signal,
+        keepalive: true,
+        headers: {
+          'Connection': 'keep-alive'
+        }
+      });
     } finally {
-      clearTimeout(timeout);
+      clearTimeout(timeoutId);
     }
 
     if (!r.ok) {
@@ -85,9 +92,18 @@ export default async function handler(req, res) {
     res.status(200).json(result);
   } catch (error) {
     console.error('Error calling ITS CCTV API:', error);
-    res.status(500).json({
-      error: 'Failed to get ITS CCTV data',
-      message: error.message
+
+    // 캐시된 데이터가 있으면 그것이라도 반환
+    if (cachedData) {
+      console.log('ITS CCTV: Returning stale cache due to error');
+      return res.status(200).json(cachedData);
+    }
+
+    // 캐시도 없으면 빈 응답 (에러 대신)
+    return res.status(200).json({
+      cctv: null,
+      total: 0,
+      error: 'ITS API temporarily unavailable'
     });
   }
 }
