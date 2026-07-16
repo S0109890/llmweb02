@@ -13,11 +13,11 @@ function App() {
   const [cctvLoading, setCctvLoading] = useState(true)
   const [snowfallCctv, setSnowfallCctv] = useState(null)
   const [snowfallLoading, setSnowfallLoading] = useState(true)
-  const [itsCctv, setItsCctv] = useState(null)
-  const [itsLoading, setItsLoading] = useState(true)
+  const [waveoverCctv, setWaveoverCctv] = useState(null)
+  const [waveoverLoading, setWaveoverLoading] = useState(true)
   const videoRefs = useRef([])
   const snowfallVideoRef = useRef(null)
-  const itsVideoRef = useRef(null)
+  const waveoverVideoRef = useRef(null)
 
   // 하천 CCTV 데이터 가져오기 (캐싱: 5분간 유효)
   useEffect(() => {
@@ -81,34 +81,34 @@ function App() {
     fetchSnowfallCctv()
   }, [])
 
-  // ITS 고속도로 CCTV 데이터 가져오기 (캐싱: 5분간 유효)
+  // 월파 감시 CCTV 데이터 가져오기 (캐싱: 5분간 유효)
   useEffect(() => {
-    async function fetchItsCctv() {
-      const cached = localStorage.getItem('its_cache')
+    async function fetchWaveoverCctv() {
+      const cached = localStorage.getItem('waveover_cache')
       if (cached) {
         const { data, timestamp } = JSON.parse(cached)
         if (Date.now() - timestamp < 5 * 60 * 1000) {
-          setItsCctv(data)
-          setItsLoading(false)
+          setWaveoverCctv(data)
+          setWaveoverLoading(false)
           return
         }
       }
 
       try {
-        const r = await fetch('/api/its-cctv')
+        const r = await fetch('/api/waveover-cctv')
         const data = await r.json()
-        setItsCctv(data.cctv)
-        localStorage.setItem('its_cache', JSON.stringify({
+        setWaveoverCctv(data.cctv)
+        localStorage.setItem('waveover_cache', JSON.stringify({
           data: data.cctv,
           timestamp: Date.now()
         }))
       } catch (error) {
-        console.error('Failed to fetch ITS CCTV:', error)
+        console.error('Failed to fetch waveover CCTV:', error)
       } finally {
-        setItsLoading(false)
+        setWaveoverLoading(false)
       }
     }
-    fetchItsCctv()
+    fetchWaveoverCctv()
   }, [])
 
   // HLS 스트림 설정 (하천 CCTV)
@@ -190,12 +190,12 @@ function App() {
     }
   }, [snowfallCctv])
 
-  // HLS 스트림 설정 (ITS 고속도로 CCTV)
+  // HLS 스트림 설정 (월파 감시 CCTV)
   useEffect(() => {
-    if (!itsCctv || !itsCctv.cctvurl) return
+    if (!waveoverCctv || !waveoverCctv.cctvUrl) return
 
-    const video = itsVideoRef.current
-    const proxiedUrl = `/api/cctv-proxy?url=${encodeURIComponent(itsCctv.cctvurl)}`
+    const video = waveoverVideoRef.current
+    const proxiedUrl = `/api/cctv-proxy?url=${encodeURIComponent(waveoverCctv.cctvUrl)}`
 
     if (video && Hls.isSupported()) {
       const hls = new Hls({
@@ -224,7 +224,7 @@ function App() {
         video.play().catch(err => console.log('Autoplay prevented:', err))
       })
     }
-  }, [itsCctv])
+  }, [waveoverCctv])
 
   // Gemini Chat 함수
   async function ask() {
@@ -321,29 +321,29 @@ function App() {
         )}
       </section>
 
-      {/* ITS 고속도로 CCTV 섹션 */}
+      {/* 월파 감시 CCTV 섹션 */}
       <section style={{ marginBottom: '40px' }}>
-        <h2>고속도로 CCTV (ITS)</h2>
-        {itsLoading ? (
-          <p>Loading ITS CCTV data...</p>
-        ) : !itsCctv ? (
-          <p>ITS CCTV 데이터를 불러올 수 없습니다.</p>
+        <h2>해안 월파 감시 CCTV</h2>
+        {waveoverLoading ? (
+          <p>Loading waveover CCTV data...</p>
+        ) : !waveoverCctv ? (
+          <p>월파 CCTV 데이터를 불러올 수 없습니다.</p>
         ) : (
           <div style={{ border: '1px solid #ccc', padding: '10px', borderRadius: '8px' }}>
-            <h3>{itsCctv.cctvname || '고속도로 CCTV'}</h3>
-            <p>도로 ID: {itsCctv.roadsectionid || 'N/A'}</p>
-            <p>위치: {itsCctv.coordy}, {itsCctv.coordx}</p>
-            {itsCctv.cctvurl ? (
+            <h3>{waveoverCctv.spotNm || '월파 감시 CCTV'}</h3>
+            <p>지점구분: {waveoverCctv.spotSe || 'N/A'}</p>
+            <p>위치: {waveoverCctv.laCrdnt}, {waveoverCctv.loCrdnt}</p>
+            {waveoverCctv.cctvUrl ? (
               <div>
                 <video
-                  ref={itsVideoRef}
+                  ref={waveoverVideoRef}
                   controls
                   muted
                   playsInline
                   style={{ width: '100%', height: '400px', borderRadius: '4px', backgroundColor: '#000' }}
                 />
                 <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  영상이 보이지 않으면 <a href={itsCctv.cctvurl} target="_blank" rel="noopener noreferrer">직접 링크</a>를 사용하세요
+                  영상이 보이지 않으면 <a href={waveoverCctv.cctvUrl} target="_blank" rel="noopener noreferrer">직접 링크</a>를 사용하세요
                 </p>
               </div>
             ) : (

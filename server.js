@@ -112,45 +112,33 @@ app.get('/api/snowfall-cctv', async (req, res) => {
   }
 });
 
-// ITS CCTV API
-app.get('/api/its-cctv', async (req, res) => {
+// Waveover CCTV API (월파 감시 CCTV)
+app.get('/api/waveover-cctv', async (req, res) => {
   try {
-    const apiKey = process.env.ITS_API_KEY;
+    const apiKey = process.env.DATA_GO_KR_KEY;
 
-    // 수도권 영역 좌표 (제주도에는 고속도로 CCTV가 없어서 수도권으로 변경)
-    const params = new URLSearchParams({
-      apiKey: apiKey,
-      type: 'ex',
-      cctvType: '1',
-      minX: '126.5',
-      maxX: '127.5',
-      minY: '37.0',
-      maxY: '37.8',
-      getType: 'json'
-    });
-
-    const url = `https://openapi.its.go.kr:9443/cctvInfo?${params.toString()}`;
-
-    // 30초 타임아웃 설정 (ITS API가 느릴 수 있음)
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-
-    try {
-      var r = await fetch(url, { signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
+    if (!apiKey) {
+      console.error('DATA_GO_KR_KEY is not set');
+      return res.status(500).json({ error: 'API key not configured' });
     }
+
+    const url = `https://apis.data.go.kr/6510000/waveoverCctvInfoService/getWaveoverCctvList?serviceKey=${apiKey}&numOfRows=10&pageNo=1&type=json`;
+
+    const r = await fetch(url);
 
     if (!r.ok) {
       const errorText = await r.text();
-      console.error('ITS API error:', r.status, errorText);
-      throw new Error(`ITS API error: ${r.status}`);
+      console.error('Waveover CCTV API error:', r.status, errorText);
+      throw new Error(`Waveover CCTV API error: ${r.status}`);
     }
 
     const data = await r.json();
-    console.log('ITS CCTV API Response:', JSON.stringify(data).substring(0, 500));
+    console.log('Waveover CCTV API Response:', JSON.stringify(data).substring(0, 500));
 
-    const cctvList = data?.response?.data || [];
+    // 실제 응답 구조에 맞게 조정
+    const cctvList = data?.response?.body?.items?.item || [];
+
+    // 첫 번째 CCTV만 선택
     const selectedCctv = cctvList[0] || null;
 
     res.status(200).json({
@@ -158,8 +146,8 @@ app.get('/api/its-cctv', async (req, res) => {
       total: cctvList.length
     });
   } catch (error) {
-    console.error('Error calling ITS CCTV API:', error);
-    res.status(500).json({ error: 'Failed to get ITS CCTV data' });
+    console.error('Error calling Waveover CCTV API:', error);
+    res.status(500).json({ error: 'Failed to get waveover CCTV data' });
   }
 });
 
@@ -234,6 +222,6 @@ app.listen(PORT, () => {
   console.log(`   - POST http://localhost:${PORT}/api/chat`);
   console.log(`   - GET  http://localhost:${PORT}/api/cctv`);
   console.log(`   - GET  http://localhost:${PORT}/api/snowfall-cctv`);
-  console.log(`   - GET  http://localhost:${PORT}/api/its-cctv`);
+  console.log(`   - GET  http://localhost:${PORT}/api/waveover-cctv`);
   console.log(`   - GET  http://localhost:${PORT}/api/cctv-proxy`);
 });
