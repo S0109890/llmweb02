@@ -19,13 +19,29 @@ function App() {
   const snowfallVideoRef = useRef(null)
   const itsVideoRef = useRef(null)
 
-  // 하천 CCTV 데이터 가져오기
+  // 하천 CCTV 데이터 가져오기 (캐싱: 5분간 유효)
   useEffect(() => {
     async function fetchCctvs() {
+      // 로컬스토리지 캐시 확인
+      const cached = localStorage.getItem('cctvs_cache')
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < 5 * 60 * 1000) { // 5분
+          setCctvs(data)
+          setCctvLoading(false)
+          return
+        }
+      }
+
       try {
         const r = await fetch('/api/cctv')
         const data = await r.json()
         setCctvs(data.cctvs || [])
+        // 캐시 저장
+        localStorage.setItem('cctvs_cache', JSON.stringify({
+          data: data.cctvs || [],
+          timestamp: Date.now()
+        }))
       } catch (error) {
         console.error('Failed to fetch CCTV data:', error)
       } finally {
@@ -35,13 +51,27 @@ function App() {
     fetchCctvs()
   }, [])
 
-  // 한라산 적설 CCTV 데이터 가져오기
+  // 한라산 적설 CCTV 데이터 가져오기 (캐싱: 5분간 유효)
   useEffect(() => {
     async function fetchSnowfallCctv() {
+      const cached = localStorage.getItem('snowfall_cache')
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
+          setSnowfallCctv(data)
+          setSnowfallLoading(false)
+          return
+        }
+      }
+
       try {
         const r = await fetch('/api/snowfall-cctv')
         const data = await r.json()
         setSnowfallCctv(data.cctv)
+        localStorage.setItem('snowfall_cache', JSON.stringify({
+          data: data.cctv,
+          timestamp: Date.now()
+        }))
       } catch (error) {
         console.error('Failed to fetch snowfall CCTV:', error)
       } finally {
@@ -51,13 +81,27 @@ function App() {
     fetchSnowfallCctv()
   }, [])
 
-  // ITS 고속도로 CCTV 데이터 가져오기
+  // ITS 고속도로 CCTV 데이터 가져오기 (캐싱: 5분간 유효)
   useEffect(() => {
     async function fetchItsCctv() {
+      const cached = localStorage.getItem('its_cache')
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
+          setItsCctv(data)
+          setItsLoading(false)
+          return
+        }
+      }
+
       try {
         const r = await fetch('/api/its-cctv')
         const data = await r.json()
         setItsCctv(data.cctv)
+        localStorage.setItem('its_cache', JSON.stringify({
+          data: data.cctv,
+          timestamp: Date.now()
+        }))
       } catch (error) {
         console.error('Failed to fetch ITS CCTV:', error)
       } finally {
@@ -80,11 +124,19 @@ function App() {
       if (video && Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: true,
-          lowLatencyMode: true,
+          lowLatencyMode: false, // 저지연 모드 끄기 (트래픽 절약)
+          maxBufferLength: 10, // 버퍼 길이 줄이기 (기본 30초 → 10초)
+          maxMaxBufferLength: 20, // 최대 버퍼 줄이기
+          startLevel: -1, // 최저 품질로 시작
+          capLevelToPlayerSize: true, // 플레이어 크기에 맞춰 품질 제한
         })
         hls.loadSource(proxiedUrl)
         hls.attachMedia(video)
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          // 최저 품질로 강제 설정
+          if (hls.levels.length > 0) {
+            hls.currentLevel = 0 // 첫 번째(최저) 품질
+          }
           video.play().catch(err => console.log('Autoplay prevented:', err))
         })
         hlsInstances.push(hls)
@@ -112,11 +164,18 @@ function App() {
     if (video && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: true,
+        lowLatencyMode: false,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 20,
+        startLevel: -1,
+        capLevelToPlayerSize: true,
       })
       hls.loadSource(proxiedUrl)
       hls.attachMedia(video)
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (hls.levels.length > 0) {
+          hls.currentLevel = 0
+        }
         video.play().catch(err => console.log('Autoplay prevented:', err))
       })
 
@@ -124,7 +183,6 @@ function App() {
         hls.destroy()
       }
     } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native support
       video.src = proxiedUrl
       video.addEventListener('loadedmetadata', () => {
         video.play().catch(err => console.log('Autoplay prevented:', err))
@@ -142,11 +200,18 @@ function App() {
     if (video && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: true,
+        lowLatencyMode: false,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 20,
+        startLevel: -1,
+        capLevelToPlayerSize: true,
       })
       hls.loadSource(proxiedUrl)
       hls.attachMedia(video)
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (hls.levels.length > 0) {
+          hls.currentLevel = 0
+        }
         video.play().catch(err => console.log('Autoplay prevented:', err))
       })
 
@@ -154,7 +219,6 @@ function App() {
         hls.destroy()
       }
     } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native support
       video.src = proxiedUrl
       video.addEventListener('loadedmetadata', () => {
         video.play().catch(err => console.log('Autoplay prevented:', err))

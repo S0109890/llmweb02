@@ -34,7 +34,15 @@ export default async function handler(req, res) {
 
     const url = `https://openapi.its.go.kr:9443/cctvInfo?${params.toString()}`;
 
-    const r = await fetch(url);
+    // 30초 타임아웃 설정 (ITS API가 느릴 수 있음)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      var r = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!r.ok) {
       const errorText = await r.text();
