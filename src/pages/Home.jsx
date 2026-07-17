@@ -19,9 +19,8 @@ function Home() {
   // 마우스 커서 및 경로 State
   const [otherCursors, setOtherCursors] = useState({}) // {userId: {x, y, color}}
   const canvasRef = useRef(null)
-  const [isDrawing, setIsDrawing] = useState(false)
-  const lastPositionRef = useRef({ x: 0, y: 0 })
-  const [otherPaths, setOtherPaths] = useState([]) // 다른 사용자 경로
+  const lastPositionRef = useRef(null) // null로 초기화
+  const pathsRef = useRef([]) // 경로 저장용 (3초 후 사라짐)
 
   // 랜덤 색상 생성 함수 (useEffect 전에 정의)
   function getRandomColor() {
@@ -148,129 +147,103 @@ function Home() {
     }
   }, [userId, userColor])
 
-  // 다른 사용자들의 마우스 경로 구독
-  useEffect(() => {
-    if (!userId) return
-
-    // 최근 경로 불러오기 (최근 5분)
-    async function loadRecentPaths() {
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-      const { data } = await supabase
-        .from('mouse_paths')
-        .select('*')
-        .gte('created_at', fiveMinutesAgo)
-        .order('created_at', { ascending: true })
-
-      if (data) {
-        setOtherPaths(data)
-      }
-    }
-
-    loadRecentPaths()
-
-    // Realtime 구독 - 새 경로 실시간 수신
-    const pathChannel = supabase
-      .channel('mouse_paths')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'mouse_paths'
-      }, (payload) => {
-        const newPath = payload.new
-        setOtherPaths(prev => [...prev, newPath])
-
-        // Canvas에 다른 사용자 경로 그리기
-        const canvas = canvasRef.current
-        if (canvas && newPath.user_id !== userId) {
-          const ctx = canvas.getContext('2d')
-          ctx.strokeStyle = newPath.color
-          ctx.lineWidth = 5
-          ctx.globalAlpha = 0.8
-          ctx.lineCap = 'round'
-          ctx.lineJoin = 'round'
-
-          ctx.beginPath()
-          ctx.moveTo(newPath.from_x, newPath.from_y)
-          ctx.lineTo(newPath.to_x, newPath.to_y)
-          ctx.stroke()
-        }
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(pathChannel)
-    }
-  }, [userId])
-
-  // 기존 경로를 Canvas에 그리기
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || otherPaths.length === 0) return
-
-    const ctx = canvas.getContext('2d')
-
-    otherPaths.forEach(path => {
-      ctx.strokeStyle = path.color
-      ctx.lineWidth = 5
-      ctx.globalAlpha = 0.8
-      ctx.lineCap = 'round'
-      ctx.lineJoin = 'round'
-
-      ctx.beginPath()
-      ctx.moveTo(path.from_x, path.from_y)
-      ctx.lineTo(path.to_x, path.to_y)
-      ctx.stroke()
-    })
-  }, [otherPaths])
-
-  // 마우스 이동 이벤트 처리
+  // 3초 후 사라지는 로컬 마우스 경로 처리 (데이터베이스 사용 안함)
   useEffect(() => {
     if (!userId || !userColor) return
 
-    let throttleTimeout = null
+    const canvas = canvasRef.current
+    if (!canvas) return
 
+    // Canvas 그리기 함수
+    function drawPaths() {
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      const now = Date.now()
+      const filteredPaths = pathsRef.current.filter(path => now - path.timestamp < 3000)
+      pathsRef.current = filteredPaths
+
+      filteredPaths.forEach(path => {
+        const age = now - path.timestamp
+        const opacity = Math.max(0, 1 - age / 3000)
+
+        ctx.strokeStyle = path.color
+        ctx.lineWidth = 5
+        ctx.globalAlpha = opacity * 0.8
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+
+        ctx.beginPath()
+        ctx.moveTo(path.fromX, path.fromY)
+        ctx.lineTo(path.toX, path.toY)
+        ctx.stroke()
+      })
+    }
+
+    // 마우스 이동 핸들러
     const handleMouseMove = (e) => {
       const x = e.clientX
       const y = e.clientY
 
-      // Canvas에 경로 그리기 & Supabase에 경로 저장
-      const canvas = canvasRef.current
-      if (canvas) {
-        const ctx = canvas.getContext('2d')
-        const lastPos = lastPositionRef.current
-
-        if (lastPos.x !== 0 || lastPos.y !== 0) {
-          ctx.strokeStyle = userColor
-          ctx.lineWidth = 5
-          ctx.globalAlpha = 0.8
-          ctx.lineCap = 'round'
-          ctx.lineJoin = 'round'
-
-          ctx.beginPath()
-          ctx.moveTo(lastPos.x, lastPos.y)
-          ctx.lineTo(x, y)
-          ctx.stroke()
-
-          // Supabase에 경로 저장 (throttle 없이 모든 경로 저장)
-          supabase
-            .from('mouse_paths')
-            .insert({
-              user_id: userId,
-              from_x: lastPos.x,
-              from_y: lastPos.y,
-              to_x: x,
-              to_y: y,
-              color: userColor
-            })
-            .catch(err => console.error('Failed to save path:', err))
-        }
-
-        lastPositionRef.current = { x, y }
+      if (lastPositionRef.current) {
+        pathsRef.current.push({
+          fromX: lastPositionRef.current.x,
+          fromY: lastPositionRef.current.y,
+          toX: x,
+          toY: y,
+          color: userColor,
+          timestamp: Date.now()
+        })
       }
 
-      // Supabase에 커서 위치 업데이트 (throttle)
-      if (!throttleTimeout) {
-        throttleTimeout = setTimeout(async () => {
+      lastPositionRef.current = { x, y }
+
+      // 커서 위치만 Supabase에 업데이트 (throttle)
+      updateCursorPosition(x, y)
+    }
+
+    // 터치 이벤트 핸들러
+    const handleTouchStart = (e) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      lastPositionRef.current = {
+        x: touch.clientX,
+        y: touch.clientY
+      }
+    }
+
+    const handleTouchMove = (e) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      const x = touch.clientX
+      const y = touch.clientY
+
+      if (lastPositionRef.current) {
+        pathsRef.current.push({
+          fromX: lastPositionRef.current.x,
+          fromY: lastPositionRef.current.y,
+          toX: x,
+          toY: y,
+          color: userColor,
+          timestamp: Date.now()
+        })
+      }
+
+      lastPositionRef.current = { x, y }
+
+      // 커서 위치만 Supabase에 업데이트
+      updateCursorPosition(x, y)
+    }
+
+    const handleTouchEnd = () => {
+      lastPositionRef.current = null
+    }
+
+    // Throttled cursor position update
+    let cursorThrottle = null
+    function updateCursorPosition(x, y) {
+      if (!cursorThrottle) {
+        cursorThrottle = setTimeout(async () => {
           try {
             await supabase
               .from('active_cursors')
@@ -284,16 +257,27 @@ function Home() {
           } catch (error) {
             console.error('Failed to update cursor:', error)
           }
-          throttleTimeout = null
-        }, 50) // 50ms throttle
+          cursorThrottle = null
+        }, 50)
       }
     }
 
+    // 이벤트 리스너 등록
     window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('touchstart', handleTouchStart, { passive: false })
+    window.addEventListener('touchmove', handleTouchMove, { passive: false })
+    window.addEventListener('touchend', handleTouchEnd)
+
+    // 애니메이션 루프 (경로 그리기 + 3초 후 삭제)
+    const animationInterval = setInterval(drawPaths, 16) // ~60fps
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
-      if (throttleTimeout) clearTimeout(throttleTimeout)
+      window.removeEventListener('touchstart', handleTouchStart)
+      window.removeEventListener('touchmove', handleTouchMove)
+      window.removeEventListener('touchend', handleTouchEnd)
+      clearInterval(animationInterval)
+      if (cursorThrottle) clearTimeout(cursorThrottle)
     }
   }, [userId, userColor])
 
