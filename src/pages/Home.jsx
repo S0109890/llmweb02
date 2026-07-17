@@ -229,8 +229,14 @@ function Home() {
       updateCursorPosition(x, y)
     }
 
-    // 터치 이벤트 핸들러
+    // 터치 이벤트 핸들러 (채팅 입력창 영역은 제외)
     const handleTouchStart = (e) => {
+      // 채팅 입력창 영역이면 무시
+      const target = e.target
+      if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.closest('[data-chat-input]')) {
+        return
+      }
+
       e.preventDefault()
       const touch = e.touches[0]
       lastPositionRef.current = {
@@ -240,6 +246,12 @@ function Home() {
     }
 
     const handleTouchMove = (e) => {
+      // 채팅 입력창 영역이면 무시
+      const target = e.target
+      if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.closest('[data-chat-input]')) {
+        return
+      }
+
       e.preventDefault()
       const touch = e.touches[0]
       const x = touch.clientX
@@ -637,16 +649,18 @@ function Home() {
           muted
           playsInline
           style={{
-            width: '100vw',
+            position: 'fixed',
+            top: 0,
+            right: 0,
             height: '100vh',
-            objectFit: 'contain',
+            width: 'auto',
             backgroundColor: '#000',
             pointerEvents: 'none'
           }}
         />
       )}
 
-      {/* AI 채팅 메시지 (줄 공책 스타일) - 화면 제일 위까지 */}
+      {/* AI 채팅 메시지 (벽돌 스타일) - 오른쪽 정렬, 일정한 높이 */}
       <div style={{
         position: 'fixed',
         top: '0',
@@ -655,63 +669,87 @@ function Home() {
         right: '20px',
         overflowY: 'auto',
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignContent: 'flex-start',
         gap: '10px',
         pointerEvents: 'none',
         paddingTop: '20px',
-        paddingBottom: '20px'
+        paddingBottom: '20px',
+        justifyContent: 'flex-end'
       }}>
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            style={{
-              position: 'relative',
-              pointerEvents: 'auto',
-              alignSelf: 'flex-start',
-              maxWidth: '90%'
-            }}
-          >
-            {/* 반투명 배경 */}
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: msg.color,
-              opacity: 0.5,
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-            }} />
-            {/* 불투명 텍스트 */}
-            <div style={{
-              position: 'relative',
-              color: 'white',
-              padding: '10px 15px',
-              wordWrap: 'break-word',
-              fontWeight: msg.role === 'user' ? 'bold' : 'normal',
-              fontSize: window.innerWidth <= 768 ? '12px' : '16px'
-            }}>
-              {msg.text}
+        {messages.map((msg, idx) => {
+          const words = msg.text.split(' ')
+          const chunks = []
+          const chunkSize = 15 // 한 벽돌당 단어 수
+
+          for (let i = 0; i < words.length; i += chunkSize) {
+            chunks.push(words.slice(i, i + chunkSize).join(' '))
+          }
+
+          return chunks.map((chunk, chunkIdx) => (
+            <div
+              key={`${idx}-${chunkIdx}`}
+              style={{
+                position: 'relative',
+                pointerEvents: 'auto',
+                width: 'calc(33.33% - 10px)',
+                minWidth: '200px',
+                height: '80px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end'
+              }}
+            >
+              {/* 반투명 배경 */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: msg.color,
+                opacity: 0.5,
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+              }} />
+              {/* 불투명 텍스트 */}
+              <div style={{
+                position: 'relative',
+                color: 'white',
+                padding: '10px 15px',
+                wordWrap: 'break-word',
+                fontWeight: msg.role === 'user' ? 'bold' : 'normal',
+                fontSize: window.innerWidth <= 768 ? '12px' : '16px',
+                textAlign: 'right',
+                width: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {chunk}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        })}
       </div>
 
       {/* AI 채팅 입력창 (제일 아래 고정) */}
-      <div style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: 'white',
-        borderTop: '2px solid #ddd',
-        padding: '10px 20px',
-        display: 'flex',
-        gap: '10px',
-        zIndex: 10001,
-        touchAction: 'manipulation'
-      }}>
+      <div
+        data-chat-input
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'white',
+          borderTop: '2px solid #ddd',
+          padding: '10px 20px',
+          display: 'flex',
+          gap: '10px',
+          zIndex: 10001,
+          touchAction: 'auto'
+        }}
+      >
         <input
           type="text"
           value={prompt}
@@ -726,7 +764,7 @@ function Home() {
             border: '1px solid #ccc',
             borderRadius: '4px',
             WebkitAppearance: 'none',
-            touchAction: 'manipulation'
+            touchAction: 'auto'
           }}
         />
         <button
