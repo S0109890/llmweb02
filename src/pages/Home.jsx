@@ -20,7 +20,7 @@ function Home() {
   const [otherCursors, setOtherCursors] = useState({}) // {userId: {x, y, color}}
   const canvasRef = useRef(null)
   const lastPositionRef = useRef(null) // null로 초기화
-  const pathsRef = useRef([]) // 경로 저장용 (3초 후 사라짐)
+  const pathsRef = useRef([]) // 경로 저장용 (3초 후 사라짐) - 모든 사용자 경로 포함
 
   // 랜덤 색상 생성 함수 (useEffect 전에 정의)
   function getRandomColor() {
@@ -147,12 +147,30 @@ function Home() {
     }
   }, [userId, userColor])
 
-  // 3초 후 사라지는 로컬 마우스 경로 처리 (데이터베이스 사용 안함)
+  // 3초 후 사라지는 마우스 경로 처리 (Realtime Broadcast로 공유, DB 저장 안함)
   useEffect(() => {
     if (!userId || !userColor) return
 
     const canvas = canvasRef.current
     if (!canvas) return
+
+    // Realtime Broadcast 채널 생성
+    const pathChannel = supabase.channel('mouse_paths_broadcast')
+
+    // 다른 사용자의 경로 수신
+    pathChannel.on('broadcast', { event: 'path' }, (payload) => {
+      const { fromX, fromY, toX, toY, color, userId: senderId } = payload.payload
+      if (senderId !== userId) {
+        pathsRef.current.push({
+          fromX,
+          fromY,
+          toX,
+          toY,
+          color,
+          timestamp: Date.now()
+        })
+      }
+    }).subscribe()
 
     // Canvas 그리기 함수
     function drawPaths() {
@@ -186,13 +204,22 @@ function Home() {
       const y = e.clientY
 
       if (lastPositionRef.current) {
-        pathsRef.current.push({
+        const pathSegment = {
           fromX: lastPositionRef.current.x,
           fromY: lastPositionRef.current.y,
           toX: x,
           toY: y,
           color: userColor,
           timestamp: Date.now()
+        }
+
+        pathsRef.current.push(pathSegment)
+
+        // Broadcast to other users
+        pathChannel.send({
+          type: 'broadcast',
+          event: 'path',
+          payload: { ...pathSegment, userId }
         })
       }
 
@@ -219,13 +246,22 @@ function Home() {
       const y = touch.clientY
 
       if (lastPositionRef.current) {
-        pathsRef.current.push({
+        const pathSegment = {
           fromX: lastPositionRef.current.x,
           fromY: lastPositionRef.current.y,
           toX: x,
           toY: y,
           color: userColor,
           timestamp: Date.now()
+        }
+
+        pathsRef.current.push(pathSegment)
+
+        // Broadcast to other users
+        pathChannel.send({
+          type: 'broadcast',
+          event: 'path',
+          payload: { ...pathSegment, userId }
         })
       }
 
@@ -278,6 +314,7 @@ function Home() {
       window.removeEventListener('touchend', handleTouchEnd)
       clearInterval(animationInterval)
       if (cursorThrottle) clearTimeout(cursorThrottle)
+      supabase.removeChannel(pathChannel)
     }
   }, [userId, userColor])
 
@@ -366,6 +403,63 @@ function Home() {
     }
   }, [cctv])
 
+  // 색상 채도 낮추기 함수 (HSL 변환)
+  function reduceSaturation(hexColor, amount = 30) {
+    // HEX to RGB
+    const r = parseInt(hexColor.slice(1, 3), 16) / 255
+    const g = parseInt(hexColor.slice(3, 5), 16) / 255
+    const b = parseInt(hexColor.slice(5, 7), 16) / 255
+
+    // RGB to HSL
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    let h, s, l = (max + min) / 2
+
+    if (max === min) {
+      h = s = 0
+    } else {
+      const d = max - min
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break
+        case g: h = ((b - r) / d + 2) / 6; break
+        case b: h = ((r - g) / d + 4) / 6; break
+      }
+    }
+
+    // 채도 낮추기
+    s = Math.max(0, s - amount / 100)
+
+    // HSL to RGB
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1
+      if (t > 1) t -= 1
+      if (t < 1/6) return p + (q - p) * 6 * t
+      if (t < 1/2) return q
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6
+      return p
+    }
+
+    let r2, g2, b2
+    if (s === 0) {
+      r2 = g2 = b2 = l
+    } else {
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+      const p = 2 * l - q
+      r2 = hue2rgb(p, q, h + 1/3)
+      g2 = hue2rgb(p, q, h)
+      b2 = hue2rgb(p, q, h - 1/3)
+    }
+
+    // RGB to HEX
+    const toHex = (x) => {
+      const hex = Math.round(x * 255).toString(16)
+      return hex.length === 1 ? '0' + hex : hex
+    }
+
+    return '#' + toHex(r2) + toHex(g2) + toHex(b2)
+  }
+
   // Gemini Chat 함수
   async function ask() {
     if (!prompt.trim() || !userId) return
@@ -412,7 +506,7 @@ function Home() {
       const aiMessage = {
         role: 'ai',
         text: data.text || 'No response',
-        color: '#9B59B6' // AI 고정 색상
+        color: reduceSaturation(userColor, 30) // 사용자 색상에서 채도 30% 낮춤
       }
 
       // AI 응답 저장 (Realtime으로 자동 추가됨)
@@ -540,10 +634,15 @@ function Home() {
       ) : (
         <video
           ref={videoRef}
-          controls
           muted
           playsInline
-          style={{ width: '100%', height: '100vh', objectFit: 'cover', backgroundColor: '#000' }}
+          style={{
+            width: '100vw',
+            height: '100vh',
+            objectFit: 'contain',
+            backgroundColor: '#000',
+            pointerEvents: 'none'
+          }}
         />
       )}
 
@@ -566,20 +665,35 @@ function Home() {
           <div
             key={idx}
             style={{
-              backgroundColor: msg.color,
-              color: 'white',
-              padding: '10px 15px',
-              borderRadius: '8px',
-              wordWrap: 'break-word',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-              fontWeight: msg.role === 'user' ? 'bold' : 'normal',
+              position: 'relative',
               pointerEvents: 'auto',
               alignSelf: 'flex-start',
-              maxWidth: '90%',
-              opacity: 0.5 // 투명도 50%
+              maxWidth: '90%'
             }}
           >
-            {msg.text}
+            {/* 반투명 배경 */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: msg.color,
+              opacity: 0.5,
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+            }} />
+            {/* 불투명 텍스트 */}
+            <div style={{
+              position: 'relative',
+              color: 'white',
+              padding: '10px 15px',
+              wordWrap: 'break-word',
+              fontWeight: msg.role === 'user' ? 'bold' : 'normal',
+              fontSize: window.innerWidth <= 768 ? '12px' : '16px'
+            }}>
+              {msg.text}
+            </div>
           </div>
         ))}
       </div>
@@ -595,7 +709,8 @@ function Home() {
         padding: '10px 20px',
         display: 'flex',
         gap: '10px',
-        zIndex: 1000
+        zIndex: 10001,
+        touchAction: 'manipulation'
       }}>
         <input
           type="text"
@@ -609,7 +724,9 @@ function Home() {
             padding: '10px',
             fontSize: '16px',
             border: '1px solid #ccc',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            WebkitAppearance: 'none',
+            touchAction: 'manipulation'
           }}
         />
         <button
@@ -622,7 +739,9 @@ function Home() {
             backgroundColor: loading ? '#ccc' : '#007bff',
             color: 'white',
             border: 'none',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent'
           }}
         >
           {loading ? '처리 중...' : '전송'}
