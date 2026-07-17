@@ -21,6 +21,7 @@ function Home() {
   const canvasRef = useRef(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const lastPositionRef = useRef({ x: 0, y: 0 })
+  const [otherPaths, setOtherPaths] = useState([]) // 다른 사용자 경로
 
   // 랜덤 색상 생성 함수 (useEffect 전에 정의)
   function getRandomColor() {
@@ -147,6 +148,81 @@ function Home() {
     }
   }, [userId, userColor])
 
+  // 다른 사용자들의 마우스 경로 구독
+  useEffect(() => {
+    if (!userId) return
+
+    // 최근 경로 불러오기 (최근 5분)
+    async function loadRecentPaths() {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+      const { data } = await supabase
+        .from('mouse_paths')
+        .select('*')
+        .gte('created_at', fiveMinutesAgo)
+        .order('created_at', { ascending: true })
+
+      if (data) {
+        setOtherPaths(data)
+      }
+    }
+
+    loadRecentPaths()
+
+    // Realtime 구독 - 새 경로 실시간 수신
+    const pathChannel = supabase
+      .channel('mouse_paths')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'mouse_paths'
+      }, (payload) => {
+        const newPath = payload.new
+        setOtherPaths(prev => [...prev, newPath])
+
+        // Canvas에 다른 사용자 경로 그리기
+        const canvas = canvasRef.current
+        if (canvas && newPath.user_id !== userId) {
+          const ctx = canvas.getContext('2d')
+          ctx.strokeStyle = newPath.color
+          ctx.lineWidth = 5
+          ctx.globalAlpha = 0.8
+          ctx.lineCap = 'round'
+          ctx.lineJoin = 'round'
+
+          ctx.beginPath()
+          ctx.moveTo(newPath.from_x, newPath.from_y)
+          ctx.lineTo(newPath.to_x, newPath.to_y)
+          ctx.stroke()
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(pathChannel)
+    }
+  }, [userId])
+
+  // 기존 경로를 Canvas에 그리기
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || otherPaths.length === 0) return
+
+    const ctx = canvas.getContext('2d')
+
+    otherPaths.forEach(path => {
+      ctx.strokeStyle = path.color
+      ctx.lineWidth = 5
+      ctx.globalAlpha = 0.8
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+
+      ctx.beginPath()
+      ctx.moveTo(path.from_x, path.from_y)
+      ctx.lineTo(path.to_x, path.to_y)
+      ctx.stroke()
+    })
+  }, [otherPaths])
+
   // 마우스 이동 이벤트 처리
   useEffect(() => {
     if (!userId || !userColor) return
@@ -157,7 +233,7 @@ function Home() {
       const x = e.clientX
       const y = e.clientY
 
-      // Canvas에 경로 그리기
+      // Canvas에 경로 그리기 & Supabase에 경로 저장
       const canvas = canvasRef.current
       if (canvas) {
         const ctx = canvas.getContext('2d')
@@ -174,6 +250,19 @@ function Home() {
           ctx.moveTo(lastPos.x, lastPos.y)
           ctx.lineTo(x, y)
           ctx.stroke()
+
+          // Supabase에 경로 저장 (throttle 없이 모든 경로 저장)
+          supabase
+            .from('mouse_paths')
+            .insert({
+              user_id: userId,
+              from_x: lastPos.x,
+              from_y: lastPos.y,
+              to_x: x,
+              to_y: y,
+              color: userColor
+            })
+            .catch(err => console.error('Failed to save path:', err))
         }
 
         lastPositionRef.current = { x, y }
@@ -405,16 +494,41 @@ function Home() {
             position: 'fixed',
             left: cursor.x,
             top: cursor.y,
-            width: '20px',
-            height: '20px',
-            border: `3px solid ${cursor.color}`,
-            borderRadius: '50%',
             pointerEvents: 'none',
             zIndex: 1000,
-            transform: 'translate(-50%, -50%)',
-            backgroundColor: 'transparent'
+            transform: 'translate(-50%, -50%)'
           }}
-        />
+        >
+          {/* 커서 원 */}
+          <div
+            style={{
+              width: '20px',
+              height: '20px',
+              border: `3px solid ${cursor.color}`,
+              borderRadius: '50%',
+              backgroundColor: 'transparent'
+            }}
+          />
+          {/* 사용자 ID 표시 */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '25px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              backgroundColor: cursor.color,
+              color: 'white',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+            }}
+          >
+            {uid.substring(0, 8)}...
+          </div>
+        </div>
       ))}
 
       {/* 나머지 CCTV 보기 버튼 - 오른쪽 위 작게 */}
@@ -449,18 +563,20 @@ function Home() {
         />
       )}
 
-      {/* AI 채팅 메시지 (줄 공책 스타일) */}
+      {/* AI 채팅 메시지 (줄 공책 스타일) - 화면 제일 위까지 */}
       <div style={{
         position: 'fixed',
+        top: '0',
         bottom: '80px',
         left: '20px',
         right: '20px',
-        maxHeight: '60vh',
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        paddingTop: '20px',
+        paddingBottom: '20px'
       }}>
         {messages.map((msg, idx) => (
           <div
@@ -475,7 +591,8 @@ function Home() {
               fontWeight: msg.role === 'user' ? 'bold' : 'normal',
               pointerEvents: 'auto',
               alignSelf: 'flex-start',
-              maxWidth: '90%'
+              maxWidth: '90%',
+              opacity: 0.5 // 투명도 50%
             }}
           >
             {msg.text}
