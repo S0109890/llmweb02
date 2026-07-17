@@ -8,35 +8,34 @@ function Home() {
   const [messages, setMessages] = useState([]) // [{role: 'user'|'ai', text: '...', color: '...'}]
   const [loading, setLoading] = useState(false)
 
-  // CCTV State - 2번째만 사용
+  // CCTV State - 월파 감시 CCTV
   const [cctv, setCctv] = useState(null)
   const [cctvLoading, setCctvLoading] = useState(true)
   const videoRef = useRef(null)
 
-  // 하천 CCTV 데이터 가져오기 (2번째만)
+  // 월파 감시 CCTV 데이터 가져오기
   useEffect(() => {
     async function fetchCctv() {
-      const cached = localStorage.getItem('cctvs_cache')
+      const cached = localStorage.getItem('waveover_cache')
       if (cached) {
         const { data, timestamp } = JSON.parse(cached)
         if (Date.now() - timestamp < 5 * 60 * 1000) {
-          setCctv(data[1] || null) // 2번째 CCTV
+          setCctv(data)
           setCctvLoading(false)
           return
         }
       }
 
       try {
-        const r = await fetch('/api/cctv')
+        const r = await fetch('/api/waveover-cctv')
         const data = await r.json()
-        const cctvs = data.cctvs || []
-        setCctv(cctvs[1] || null) // 2번째 CCTV
-        localStorage.setItem('cctvs_cache', JSON.stringify({
-          data: cctvs,
+        setCctv(data.cctv)
+        localStorage.setItem('waveover_cache', JSON.stringify({
+          data: data.cctv,
           timestamp: Date.now()
         }))
       } catch (error) {
-        console.error('Failed to fetch CCTV data:', error)
+        console.error('Failed to fetch waveover CCTV:', error)
       } finally {
         setCctvLoading(false)
       }
@@ -132,67 +131,49 @@ function Home() {
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', padding: '20px', paddingBottom: '120px' }}>
-      <h1>제주 하천 CCTV + AI 챗봇</h1>
-
-      {/* 나머지 CCTV 보기 버튼 */}
-      <div style={{ marginBottom: '20px' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', padding: '0', paddingBottom: '80px', margin: '0' }}>
+      {/* 나머지 CCTV 보기 버튼 - 오른쪽 위 작게 */}
+      <div style={{ position: 'fixed', top: '10px', right: '10px', zIndex: 1001 }}>
         <Link to="/more-cctvs">
           <button style={{
-            padding: '10px 20px',
-            fontSize: '16px',
+            padding: '5px 10px',
+            fontSize: '12px',
             backgroundColor: '#3498db',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
             cursor: 'pointer'
           }}>
-            나머지 CCTV 보기
+            다른 CCTV
           </button>
         </Link>
       </div>
 
-      {/* CCTV 영상 섹션 */}
-      <section style={{ marginBottom: '40px' }}>
-        <h2>실시간 하천 CCTV</h2>
-        {cctvLoading ? (
-          <p>Loading CCTV data...</p>
-        ) : !cctv ? (
-          <p>CCTV 데이터를 불러올 수 없습니다.</p>
-        ) : (
-          <div style={{ border: '1px solid #ccc', padding: '10px', borderRadius: '8px' }}>
-            <h3>{cctv.spotNm || 'CCTV'}</h3>
-            <p>지점구분: {cctv.spotSe || 'N/A'}</p>
-            <p>위치: {cctv.laCrdnt}, {cctv.loCrdnt}</p>
-            {cctv.cctvUrl ? (
-              <div>
-                <video
-                  ref={videoRef}
-                  controls
-                  muted
-                  playsInline
-                  style={{ width: '100%', height: '300px', borderRadius: '4px', backgroundColor: '#000' }}
-                />
-                <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  영상이 보이지 않으면 <a href={cctv.cctvUrl} target="_blank" rel="noopener noreferrer">직접 링크</a>를 사용하세요
-                </p>
-              </div>
-            ) : (
-              <p>영상을 사용할 수 없습니다.</p>
-            )}
-          </div>
-        )}
-      </section>
+      {/* CCTV 영상만 - 제목/설명 제거 */}
+      {cctvLoading ? (
+        <p style={{ padding: '20px' }}>Loading...</p>
+      ) : !cctv || !cctv.cctvUrl ? (
+        <p style={{ padding: '20px' }}>CCTV를 불러올 수 없습니다.</p>
+      ) : (
+        <video
+          ref={videoRef}
+          controls
+          muted
+          playsInline
+          style={{ width: '100%', height: '100vh', objectFit: 'cover', backgroundColor: '#000' }}
+        />
+      )}
 
-      {/* AI 채팅 메시지 (벽돌쌓기 스타일) */}
+      {/* AI 채팅 메시지 (줄 공책 스타일) */}
       <div style={{
         position: 'fixed',
         bottom: '80px',
         left: '20px',
         right: '20px',
+        maxHeight: '60vh',
+        overflowY: 'auto',
         display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'flex-end',
+        flexDirection: 'column',
         gap: '10px',
         pointerEvents: 'none'
       }}>
@@ -204,11 +185,12 @@ function Home() {
               color: 'white',
               padding: '10px 15px',
               borderRadius: '8px',
-              maxWidth: '300px',
               wordWrap: 'break-word',
               boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
               fontWeight: msg.role === 'user' ? 'bold' : 'normal',
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              alignSelf: 'flex-start',
+              maxWidth: '90%'
             }}
           >
             {msg.text}
