@@ -465,210 +465,132 @@ function Marionette() {
           {/* 3단 레이어 다이컷 구조 (Tree of Codes 방식) */}
           <div style={{
             position: 'relative',
-            fontSize: '11px',
-            lineHeight: '1.8',
-            textAlign: 'left',
-            minHeight: '600px'
+            width: '100%',
+            height: '2000px'
           }}>
-            {/* AI 대화 쌍 준비 */}
-            {(() => {
-              const conversationPairs = []
-              for (let i = 0; i < messages.length; i++) {
-                if (messages[i].role === 'user' && messages[i + 1]?.role === 'ai') {
-                  conversationPairs.push({
-                    user: messages[i],
-                    ai: messages[i + 1]
-                  })
-                  i++
-                }
-              }
+            {/* 레이어 3 (맨 뒤, z-index: 1) - 블랙 예비 레이어 */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: '#000',
+              zIndex: 1
+            }} />
 
-              return (
-                <>
-                  {/* 레이어 3 (최하단, z-index: 1) - 블랙 배경 */}
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    padding: '0',
-                    zIndex: 1,
-                    backgroundColor: '#000'
-                  }}>
-                    {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
-                      const words = sentence.split(' ')
-                      const elements = []
+            {/* 레이어 2 (중간, z-index: 2) - AI 대화 턴들 */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              fontFamily: '"Cardo", serif',
+              fontSize: '11px',
+              lineHeight: '1.8',
+              zIndex: 2,
+              padding: '30px',
+              backgroundColor: 'rgba(0, 0, 255, 0.3)' // 임시 확인용 blue
+            }}>
+              {messages.map((msg, idx) => {
+                // 랜덤 위치에 대화 턴 배치
+                const topPos = (idx * 50 + (idx * 137) % 300) % 1800
+                const leftPos = (idx * 80) % 400
 
-                      words.forEach((word, wIdx) => {
-                        // TODO: 나중에 랜덤 구멍 뚫을 예정
-                        elements.push(
-                          <span
-                            key={`layer3-${sentenceIdx}-${wIdx}`}
-                            style={{
-                              fontFamily: '"Cardo", serif',
-                              fontSize: '11px',
-                              lineHeight: '1.8',
-                              color: '#fff'
-                            }}
-                          >
-                            {word}{' '}
-                          </span>
-                        )
-                      })
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      position: 'absolute',
+                      top: `${topPos}px`,
+                      left: `${leftPos}px`,
+                      backgroundColor: msg.color + '30',
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      fontFamily: '"Noto Serif KR", serif',
+                      fontSize: '11px',
+                      maxWidth: '200px'
+                    }}
+                  >
+                    {msg.text}
+                  </div>
+                )
+              })}
+            </div>
 
-                      return (
-                        <p key={sentenceIdx} style={{
-                          marginBottom: '4px',
+            {/* 레이어 1 (맨 위, z-index: 3) - 클라이스트 원문, 구멍 뚫린 종이 */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              fontFamily: '"Cardo", serif',
+              fontSize: '11px',
+              lineHeight: '1.8',
+              zIndex: 3,
+              padding: '30px',
+              backgroundColor: 'rgba(255, 0, 0, 0.3)' // 임시 확인용 red
+            }}>
+              {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
+                const color = GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length]
+                const words = sentence.split(' ')
+                const elements = []
+
+                words.forEach((word, wIdx) => {
+                  const cutSeed = (sentenceIdx * 1000 + wIdx) % 100
+                  const isCut = cutSeed < 15
+
+                  if (isCut) {
+                    // 구멍: 배경 투명, 텍스트 투명
+                    elements.push(
+                      <span
+                        key={`layer1-${sentenceIdx}-${wIdx}`}
+                        className="word-span"
+                        style={{
+                          backgroundColor: 'transparent',
+                          color: 'transparent',
                           fontFamily: '"Cardo", serif',
                           fontSize: '11px',
                           lineHeight: '1.8'
-                        }}>
-                          {elements}
-                        </p>
-                      )
-                    })}
-                  </div>
-
-                  {/* 레이어 2 (중간, z-index: 2) - AI 대화 */}
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    padding: '0',
-                    zIndex: 2,
-                    pointerEvents: 'none'
-                  }}>
-                    {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
-                      const words = sentence.split(' ')
-                      const elements = []
-
-                      words.forEach((word, wIdx) => {
-                        const insertConvSeed = (sentenceIdx * 1000 + wIdx) % 100
-                        const shouldShowConv = insertConvSeed < 3 && conversationPairs.length > 0
-
-                        if (shouldShowConv) {
-                          const hash = (sentenceIdx * 7919 + wIdx * 6547) % conversationPairs.length
-                          const pair = conversationPairs[hash]
-
-                          elements.push(
-                            <span
-                              key={`layer2-${sentenceIdx}-${wIdx}`}
-                              style={{
-                                backgroundColor: pair.user.color + '30',
-                                padding: '2px 6px',
-                                borderRadius: '3px',
-                                fontFamily: '"Noto Serif KR", serif',
-                                fontSize: '11px',
-                                lineHeight: '1.8'
-                              }}
-                            >
-                              {pair.user.text} → {pair.ai.text}
-                            </span>
-                          )
-                        } else {
-                          // 투명한 공간 (그리드 유지)
-                          elements.push(
-                            <span
-                              key={`layer2-${sentenceIdx}-${wIdx}`}
-                              style={{
-                                opacity: 0,
-                                fontFamily: '"Cardo", serif',
-                                fontSize: '11px',
-                                lineHeight: '1.8'
-                              }}
-                            >
-                              {word}{' '}
-                            </span>
-                          )
-                        }
-                      })
-
-                      return (
-                        <p key={sentenceIdx} style={{
-                          marginBottom: '4px',
+                        }}
+                      >
+                        {word}{' '}
+                      </span>
+                    )
+                  } else {
+                    // 불투명한 종이 - 배경 흰색 필수
+                    elements.push(
+                      <span
+                        key={`layer1-${sentenceIdx}-${wIdx}`}
+                        className="word-span"
+                        style={{
+                          backgroundColor: '#fff',
+                          color: color,
                           fontFamily: '"Cardo", serif',
                           fontSize: '11px',
                           lineHeight: '1.8'
-                        }}>
-                          {elements}
-                        </p>
-                      )
-                    })}
-                  </div>
+                        }}
+                      >
+                        {word}{' '}
+                      </span>
+                    )
+                  }
+                })
 
-                  {/* 레이어 1 (최상단, z-index: 3) - 클라이스트 원문, 구멍 뚫린 종이 */}
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    padding: '0',
-                    zIndex: 3,
-                    backgroundColor: '#fff'
+                return (
+                  <p key={sentenceIdx} style={{
+                    marginBottom: '4px',
+                    fontFamily: '"Cardo", serif',
+                    fontSize: '11px',
+                    lineHeight: '1.8'
                   }}>
-                    {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
-                      const color = GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length]
-                      const words = sentence.split(' ')
-                      const elements = []
-
-                      words.forEach((word, wIdx) => {
-                        const cutSeed = (sentenceIdx * 1000 + wIdx) % 100
-                        const isCut = cutSeed < 15
-
-                        if (isCut) {
-                          // 구멍: 배경 투명, 텍스트 투명
-                          elements.push(
-                            <span
-                              key={`layer1-${sentenceIdx}-${wIdx}`}
-                              className="word-span"
-                              style={{
-                                backgroundColor: 'transparent',
-                                color: 'transparent',
-                                fontFamily: '"Cardo", serif',
-                                fontSize: '11px',
-                                lineHeight: '1.8'
-                              }}
-                            >
-                              {word}{' '}
-                            </span>
-                          )
-                        } else {
-                          // 불투명한 종이
-                          elements.push(
-                            <span
-                              key={`layer1-${sentenceIdx}-${wIdx}`}
-                              className="word-span"
-                              style={{
-                                backgroundColor: '#fff',
-                                color: color,
-                                fontFamily: '"Cardo", serif',
-                                fontSize: '11px',
-                                lineHeight: '1.8',
-                                position: 'relative'
-                              }}
-                            >
-                              {word}{' '}
-                            </span>
-                          )
-                        }
-                      })
-
-                      return (
-                        <p key={sentenceIdx} style={{
-                          marginBottom: '4px',
-                          fontFamily: '"Cardo", serif',
-                          fontSize: '11px',
-                          lineHeight: '1.8'
-                        }}>
-                          {elements}
-                        </p>
-                      )
-                    })}
-                  </div>
-                </>
-              )
-            })()}
+                    {elements}
+                  </p>
+                )
+              })}
+            </div>
           </div>
 
         </div>
