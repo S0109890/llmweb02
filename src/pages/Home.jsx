@@ -12,8 +12,10 @@ function Home() {
   const [userColor, setUserColor] = useState('')
 
   // CCTV State - 3개 (해안, 하천, 한라산)
+  const [cctv, setCctv] = useState(null)
   const [cctvs, setCctvs] = useState({ waveover: null, river: null, snow: null })
   const [cctvLoading, setCctvLoading] = useState(true)
+  const videoRef = useRef(null)
   const videoRefs = useRef({ waveover: null, river: null, snow: null })
 
   // 마우스 커서 및 경로 State

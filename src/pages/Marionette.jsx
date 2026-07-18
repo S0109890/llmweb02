@@ -29,6 +29,8 @@ const AI_PINK_VARIATIONS = [
 ]
 
 function Marionette() {
+  console.log('🎭 Marionette component loaded')
+
   const [prompt, setPrompt] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
@@ -45,27 +47,38 @@ function Marionette() {
 
   // 사용자 ID 초기화
   useEffect(() => {
+    console.log('🔧 Initializing user ID and color')
     let uid = localStorage.getItem('marionette_user_id')
     if (!uid) {
       uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       localStorage.setItem('marionette_user_id', uid)
+      console.log('✨ Created new user ID:', uid)
+    } else {
+      console.log('👤 Loaded existing user ID:', uid)
     }
 
     // 핑크 베리에이션 중 랜덤 선택
     const color = AI_PINK_VARIATIONS[Math.floor(Math.random() * AI_PINK_VARIATIONS.length)]
+    console.log('🎨 User color:', color)
     setUserId(uid)
     setUserColor(color)
 
     // 메시지 로드
+    console.log('📥 Loading messages...')
     loadMessages()
   }, [])
 
   // 단어 위치 수집 (자석 기능용)
   useEffect(() => {
-    if (!containerRef.current) return
+    console.log('🧲 Collecting word positions for magnetic effect')
+    if (!containerRef.current) {
+      console.log('⚠️ Container ref not ready')
+      return
+    }
 
     const words = []
     const sentenceElements = containerRef.current.querySelectorAll('[data-sentence-id]')
+    console.log('📝 Found sentences:', sentenceElements.length)
 
     sentenceElements.forEach((element) => {
       const text = element.textContent
@@ -85,6 +98,7 @@ function Marionette() {
       })
     })
 
+    console.log('✅ Collected word positions:', words.length)
     setWordPositions(words)
   }, [messages])
 
