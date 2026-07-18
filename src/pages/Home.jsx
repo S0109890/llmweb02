@@ -11,10 +11,10 @@ function Home() {
   const [userId, setUserId] = useState('')
   const [userColor, setUserColor] = useState('')
 
-  // CCTV State - 월파 감시 CCTV
-  const [cctv, setCctv] = useState(null)
+  // CCTV State - 3개 (해안, 하천, 한라산)
+  const [cctvs, setCctvs] = useState({ waveover: null, river: null, snow: null })
   const [cctvLoading, setCctvLoading] = useState(true)
-  const videoRef = useRef(null)
+  const videoRefs = useRef({ waveover: null, river: null, snow: null })
 
   // 마우스 커서 및 경로 State
   const [otherCursors, setOtherCursors] = useState({}) // {userId: {x, y, color}}
