@@ -27,6 +27,104 @@ function Marionette() {
   const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState('')
   const [userColor, setUserColor] = useState('')
+  const [cursorTrail, setCursorTrail] = useState([])
+  const [otherCursors, setOtherCursors] = useState([])
+  const [guideDots, setGuideDots] = useState([])
+
+  const containerRef = useRef(null)
+
+  // 가이드 점 계산 (모든 단어 끝) - 한번만 계산
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const dots = []
+      const textElements = document.querySelectorAll('.word-span')
+      const rightColumn = document.querySelector('.right-column')
+      if (!rightColumn) return
+
+      const columnRect = rightColumn.getBoundingClientRect()
+
+      textElements.forEach((el) => {
+        const rect = el.getBoundingClientRect()
+        dots.push({
+          x: rect.right - columnRect.left,
+          y: rect.top - columnRect.top + rect.height / 2,
+          word: el.textContent
+        })
+      })
+      setGuideDots(dots)
+    }, 100)
+    return () => clearTimeout(timeout)
+  }, [messages.length])
+
+  // 마우스 추적 및 자석 기능
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const rightColumn = document.querySelector('.right-column')
+      if (!rightColumn) return
+
+      const columnRect = rightColumn.getBoundingClientRect()
+      const mouseX = e.clientX - columnRect.left
+      const mouseY = e.clientY - columnRect.top
+
+      let finalX = e.clientX
+      let finalY = e.clientY
+
+      // 5px 이내 가이드 점 찾기
+      const nearDot = guideDots.find(dot => {
+        const dist = Math.sqrt(Math.pow(dot.x - mouseX, 2) + Math.pow(dot.y - mouseY, 2))
+        return dist <= 5
+      })
+
+      if (nearDot) {
+        finalX = nearDot.x + columnRect.left
+        finalY = nearDot.y + columnRect.top
+      }
+
+      const now = Date.now()
+
+      // 로컬 궤적 업데이트
+      setCursorTrail(prev => [
+        ...prev.filter(p => now - p.timestamp < 30000), // 30초 유지
+        { x: finalX, y: finalY, timestamp: now }
+      ])
+
+      // Supabase에 커서 위치 업데이트 (throttle)
+      if (userId && now % 100 === 0) { // 100ms마다
+        supabase.from('marionette_cursors').upsert({
+          user_id: userId,
+          x: finalX,
+          y: finalY,
+          color: userColor,
+          updated_at: new Date().toISOString()
+        })
+      }
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [guideDots, userId, userColor])
+
+  // 다른 사용자 커서 구독
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase
+      .channel('cursors')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'marionette_cursors',
+        filter: `user_id=neq.${userId}`
+      }, (payload) => {
+        setOtherCursors(prev => {
+          const filtered = prev.filter(c => c.user_id !== payload.new.user_id)
+          return [...filtered, payload.new]
+        })
+      })
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [userId])
 
   useEffect(() => {
     console.log('🔧 Initializing user ID and color')
@@ -111,11 +209,10 @@ function Marionette() {
         maxWidth: '1400px',
         margin: '0 auto',
         display: 'grid',
-        gridTemplateColumns: '1fr',
+        gridTemplateColumns: window.innerWidth >= 768 ? '1fr 1fr' : '1fr',
         gap: '30px',
         border: '1px solid #000'
       }}
-      className="md-grid"
       >
         {/* 왼쪽 컬럼 */}
         <div style={{
@@ -161,7 +258,8 @@ function Marionette() {
             fontSize: '11px',
             lineHeight: '1.8',
             marginBottom: '30px',
-            color: '#000'
+            color: '#000',
+            textAlign: 'left'
           }}>
             <p style={{ marginBottom: '12px' }}>
               <span style={{ textDecoration: 'underline' }}>ÜBER DAS MARIONETTENTHEATER</span> —
@@ -173,7 +271,7 @@ function Marionette() {
               H: Mercury, fluidity. Mercury is heavy, dense.<br/>
               L: Liquid
             </p>
-            <p>
+            <p style={{ textAlign: 'left' }}>
               언어가 끈이야. German text as immutable bricks,
               AI conversations as temporary structures.
               The breath animates the marionette.
@@ -284,10 +382,70 @@ function Marionette() {
         </div>
 
         {/* 오른쪽 컬럼 */}
-        <div style={{
-          backgroundColor: '#fff',
-          padding: '30px'
-        }}>
+        <div
+          className="right-column"
+          style={{
+            backgroundColor: '#fff',
+            padding: '30px',
+            position: 'relative'
+          }}
+        >
+          {/* 가이드 점들 */}
+          {guideDots.map((dot, idx) => (
+            <div
+              key={idx}
+              style={{
+                position: 'absolute',
+                left: dot.x - 0.75,
+                top: dot.y - 0.75,
+                width: '1.5px',
+                height: '1.5px',
+                backgroundColor: '#ff0000',
+                borderRadius: '50%',
+                pointerEvents: 'none',
+                zIndex: 1000
+              }}
+            />
+          ))}
+
+          {/* 내 커서 궤적 */}
+          {cursorTrail.map((point, idx) => (
+            <div
+              key={idx}
+              style={{
+                position: 'fixed',
+                left: point.x - 2,
+                top: point.y - 2,
+                width: '4px',
+                height: '4px',
+                backgroundColor: userColor,
+                borderRadius: '50%',
+                opacity: 0.6,
+                pointerEvents: 'none',
+                zIndex: 999
+              }}
+            />
+          ))}
+
+          {/* 다른 사용자 커서들 */}
+          {otherCursors.map((cursor) => (
+            <div
+              key={cursor.user_id}
+              style={{
+                position: 'fixed',
+                left: cursor.x - 4,
+                top: cursor.y - 4,
+                width: '8px',
+                height: '8px',
+                backgroundColor: cursor.color,
+                borderRadius: '50%',
+                border: '2px solid #fff',
+                pointerEvents: 'none',
+                zIndex: 1001
+              }}
+            />
+          ))}
+
           {/* CCTV 박스 */}
           <div style={{
             width: '100%',
@@ -304,77 +462,90 @@ function Marionette() {
             CCTV STREAM
           </div>
 
-          {/* 텍스트 블록들 */}
-          <div style={{ fontSize: '11px', lineHeight: '1.8' }}>
-            {KLEIST_SENTENCES.slice(0, 8).map((sentence, idx) => {
-              const color = GERMAN_COLORS[idx % GERMAN_COLORS.length]
+          {/* 텍스트 블록들 - 클라이스트 원문 + AI 대화 섞기 */}
+          <div style={{ fontSize: '11px', lineHeight: '1.8', textAlign: 'left' }}>
+            {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
+              const color = GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length]
               const words = sentence.split(' ')
+              const elements = []
+
+              // AI 메시지를 user-ai 쌍으로 그룹화
+              const conversationPairs = []
+              for (let i = 0; i < messages.length; i++) {
+                if (messages[i].role === 'user' && messages[i + 1]?.role === 'ai') {
+                  conversationPairs.push({
+                    user: messages[i],
+                    ai: messages[i + 1]
+                  })
+                  i++ // skip next ai message
+                }
+              }
+
+              words.forEach((word, wIdx) => {
+                // 고정된 랜덤 값 사용 (시드 기반)
+                const highlightSeed = (sentenceIdx * 1000 + wIdx) % 100
+                const shouldHighlight = highlightSeed < 15
+
+                const insertConvSeed = (sentenceIdx * 1000 + wIdx) % 100
+                const shouldInsertConv = insertConvSeed < 20 && conversationPairs.length > 0
+
+                // 단어 추가
+                elements.push(
+                  <span
+                    key={`word-${sentenceIdx}-${wIdx}`}
+                    className="word-span"
+                    style={{
+                      backgroundColor: shouldHighlight ? color + '40' : 'transparent',
+                      padding: shouldHighlight ? '1px 3px' : '0',
+                      position: 'relative'
+                    }}
+                  >
+                    {word}{' '}
+                  </span>
+                )
+
+                // 고정된 위치에 AI 대화 삽입
+                if (shouldInsertConv) {
+                  const pairIdx = (sentenceIdx + wIdx) % conversationPairs.length
+                  const pair = conversationPairs[pairIdx]
+                  const spaceCount = ((sentenceIdx * wIdx) % 5) + 1 // 1~5 공백
+
+                  elements.push(
+                    <span key={`space-${sentenceIdx}-${wIdx}`} style={{ display: 'inline-block', width: `${spaceCount * 10}px` }} />
+                  )
+                  elements.push(
+                    <span
+                      key={`conv-${sentenceIdx}-${wIdx}`}
+                      style={{
+                        backgroundColor: pair.user.color + '30',
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                        fontFamily: '"Noto Serif KR", serif',
+                        fontSize: '10px',
+                        marginRight: '4px'
+                      }}
+                    >
+                      {pair.user.text} → {pair.ai.text}
+                    </span>
+                  )
+                }
+              })
 
               return (
-                <p key={idx} style={{
+                <p key={sentenceIdx} style={{
                   marginBottom: '4px',
-                  fontFamily: '"Cardo", serif'
+                  fontFamily: '"Cardo", serif',
+                  textAlign: 'left'
                 }}>
-                  {words.map((word, wIdx) => {
-                    const shouldHighlight = Math.random() < 0.15
-                    return (
-                      <span
-                        key={wIdx}
-                        style={{
-                          backgroundColor: shouldHighlight ? color + '40' : 'transparent',
-                          padding: shouldHighlight ? '1px 3px' : '0'
-                        }}
-                      >
-                        {word}{' '}
-                      </span>
-                    )
-                  })}
+                  {elements}
                 </p>
               )
             })}
           </div>
 
-          {/* AI 메시지들 */}
-          {messages.length > 0 && (
-            <div style={{
-              marginTop: '30px',
-              paddingTop: '20px',
-              borderTop: '1px solid #00000020'
-            }}>
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    marginBottom: '12px',
-                    padding: '8px 12px',
-                    backgroundColor: msg.role === 'ai' ? msg.color + '20' : '#f5f5f5',
-                    fontSize: '10px',
-                    lineHeight: '1.6',
-                    fontFamily: msg.role === 'ai' ? '"Noto Serif KR", serif' : '"D2Coding", monospace'
-                  }}
-                >
-                  <span style={{ opacity: 0.6, fontSize: '9px' }}>
-                    {msg.role === 'ai' ? 'AI' : msg.userId.slice(0, 8)}:
-                  </span>
-                  {' '}
-                  {msg.text}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
-      <style>{`
-        .md-grid {
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 768px) {
-          .md-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-        }
-      `}</style>
     </div>
   )
 }
