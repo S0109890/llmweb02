@@ -225,7 +225,7 @@ function Marionette() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#fff',
+      backgroundColor: '#f5f5f5',
       position: 'relative',
       overflow: 'hidden',
       fontFamily: '"Cardo", serif'
@@ -256,32 +256,32 @@ function Marionette() {
                   top: pos.y - scrollY,
                   width: pos.width,
                   minHeight: pos.height,
-                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                  backdropFilter: 'blur(10px)',
-                  border: `1px solid ${aiMsg.color}40`,
-                  color: aiMsg.color,
-                  padding: '12px 18px',
-                  borderRadius: '0',
+                  backgroundColor: '#fff',
+                  border: `2px solid ${aiMsg.color}`,
+                  color: '#000',
+                  padding: '10px 14px',
                   fontSize: '10px',
-                  lineHeight: '1.6',
+                  lineHeight: '1.5',
                   fontFamily: aiMsg.role === 'ai' ? '"Noto Serif KR", serif' : '"D2Coding", monospace',
-                  boxShadow: `inset 0 0 0 1px ${aiMsg.color}10, 0 1px 2px rgba(0,0,0,0.05)`,
-                  transition: 'top 0.1s linear, border-color 0.3s ease',
+                  boxShadow: `3px 3px 0 ${aiMsg.color}`,
+                  transition: 'top 0.1s linear',
                   display: 'flex',
                   flexDirection: 'column',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  letterSpacing: '0.01em'
                 }}
               >
                 <div style={{
                   fontSize: '8px',
-                  opacity: 0.5,
-                  marginBottom: '6px',
+                  opacity: 0.4,
+                  marginBottom: '5px',
                   fontFamily: '"D2Coding", monospace',
-                  letterSpacing: '0.5px'
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase'
                 }}>
                   {aiMsg.userId.substring(0, 10)}
                 </div>
-                <div style={{ opacity: 0.8 }}>
+                <div style={{ opacity: 0.9 }}>
                   {aiMsg.text.substring(0, 120)}...
                 </div>
               </div>
@@ -296,19 +296,20 @@ function Marionette() {
                 position: 'absolute',
                 left: pos.x,
                 top: pos.y - scrollY,
-                width: pos.width,
-                fontSize: '12px',
-                lineHeight: '1.8',
-                color: pos.color,
+                fontSize: '11px',
+                lineHeight: '1.5',
+                color: '#000',
                 fontFamily: '"Cardo", serif',
-                transition: 'top 0.1s linear, opacity 0.3s ease',
-                opacity: (pos.y - scrollY) > -100 && (pos.y - scrollY) < window.innerHeight + 100 ? 0.95 : 0.2,
+                transition: 'top 0.1s linear, opacity 0.2s ease',
+                opacity: (pos.y - scrollY) > -100 && (pos.y - scrollY) < window.innerHeight + 100 ? 1 : 0.1,
                 whiteSpace: 'nowrap',
                 overflow: 'visible',
-                padding: '8px 12px',
-                background: `linear-gradient(90deg, ${pos.color}05 0%, ${pos.color}03 100%)`,
-                borderLeft: `2px solid ${pos.color}30`,
-                backdropFilter: 'blur(20px)'
+                padding: '6px 10px',
+                backgroundColor: '#fff',
+                border: `1px solid ${pos.color}`,
+                letterSpacing: '0.02em',
+                fontWeight: '400',
+                boxShadow: `2px 2px 0 ${pos.color}20`
               }}
             >
               {pos.sentence}
