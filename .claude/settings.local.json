@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Add Korean font support with Noto Serif KR and D2Coding\n\n- Add Noto Serif KR for headings (제목/문학용)\n- Add D2Coding for body text and code (본문/내용용)\n- Update HTML lang attribute to ''ko''\n- Update CSS font variables to use Korean fonts\n- Apply color palette (#3da35d, #aec5eb, #dec0f1, #59594a, #e8fccf)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Add Korean font support with Noto Serif KR and D2Coding\n\n- Add Noto Serif KR for headings (제목/문학용)\n- Add D2Coding for body text and code (본문/내용용)\n- Update HTML lang attribute to ''ko''\n- Update CSS font variables to use Korean fonts\n- Apply color palette (#3da35d, #aec5eb, #dec0f1, #59594a, #e8fccf)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
