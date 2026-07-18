@@ -69,10 +69,10 @@ function Marionette() {
       let finalX = e.clientX
       let finalY = e.clientY
 
-      // 5px 이내 가이드 점 찾기
+      // 50px 이내 가이드 점 찾기
       const nearDot = guideDots.find(dot => {
         const dist = Math.sqrt(Math.pow(dot.x - mouseX, 2) + Math.pow(dot.y - mouseY, 2))
-        return dist <= 5
+        return dist <= 50
       })
 
       if (nearDot) {
@@ -486,8 +486,9 @@ function Marionette() {
                 const highlightSeed = (sentenceIdx * 1000 + wIdx) % 100
                 const shouldHighlight = highlightSeed < 15
 
+                // 3%로 대폭 감소 (20% → 3%)
                 const insertConvSeed = (sentenceIdx * 1000 + wIdx) % 100
-                const shouldInsertConv = insertConvSeed < 20 && conversationPairs.length > 0
+                const shouldInsertConv = insertConvSeed < 3 && conversationPairs.length > 0
 
                 // 단어 추가
                 elements.push(
@@ -504,10 +505,11 @@ function Marionette() {
                   </span>
                 )
 
-                // 고정된 위치에 AI 대화 삽입
+                // 고정된 위치에 AI 대화 삽입 - 더 나은 분산
                 if (shouldInsertConv) {
-                  const pairIdx = (sentenceIdx + wIdx) % conversationPairs.length
-                  const pair = conversationPairs[pairIdx]
+                  // 더 나은 분산을 위해 hash 값 사용
+                  const hash = (sentenceIdx * 7919 + wIdx * 6547) % conversationPairs.length
+                  const pair = conversationPairs[hash]
                   const spaceCount = ((sentenceIdx * wIdx) % 5) + 1 // 1~5 공백
 
                   elements.push(
