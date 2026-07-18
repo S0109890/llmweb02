@@ -27,97 +27,6 @@ function Marionette() {
   const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState('')
   const [userColor, setUserColor] = useState('')
-  const [scrollY, setScrollY] = useState(0)
-
-  const containerRef = useRef(null)
-
-  // 텍스트 너비 계산
-  const measureTextWidth = (text, fontSize = 11) => {
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    ctx.font = `${fontSize}px Cardo, serif`
-    return ctx.measureText(text).width + 16
-  }
-
-  // 오른쪽 영역 레이아웃 계산
-  const calculateRightLayout = () => {
-    const positions = []
-    const RIGHT_START = window.innerWidth / 2
-    const PADDING = 30
-    const LINE_HEIGHT = 50
-
-    let currentX = RIGHT_START + PADDING
-    let currentY = 80
-    let sentenceIdx = 0
-
-    // CCTV 큰 박스 먼저
-    positions.push({
-      id: 'cctv-main',
-      type: 'cctv',
-      x: RIGHT_START + PADDING,
-      y: currentY,
-      width: 400,
-      height: 300
-    })
-    currentY += 320
-
-    // 텍스트 블록들
-    while (sentenceIdx < Math.min(KLEIST_SENTENCES.length, 15)) {
-      const sentence = KLEIST_SENTENCES[sentenceIdx]
-      const textWidth = measureTextWidth(sentence, 11)
-
-      if (currentX + textWidth > window.innerWidth - PADDING) {
-        currentX = RIGHT_START + PADDING
-        currentY += LINE_HEIGHT
-      }
-
-      // 랜덤으로 이미지 박스 삽입
-      if (Math.random() < 0.2) {
-        const imgWidth = Math.random() * 150 + 100
-        const imgHeight = Math.random() * 100 + 60
-
-        if (currentX + imgWidth > window.innerWidth - PADDING) {
-          currentX = RIGHT_START + PADDING
-          currentY += LINE_HEIGHT
-        }
-
-        positions.push({
-          id: `img-${sentenceIdx}`,
-          type: 'image',
-          x: currentX + (Math.random() * 4 - 2),
-          y: currentY + (Math.random() * 4 - 2),
-          width: imgWidth,
-          height: imgHeight
-        })
-        currentX += imgWidth + 10
-      }
-
-      if (currentX + textWidth > window.innerWidth - PADDING) {
-        currentX = RIGHT_START + PADDING
-        currentY += LINE_HEIGHT
-      }
-
-      const color = GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length]
-      positions.push({
-        id: `text-${sentenceIdx}`,
-        type: 'text',
-        sentence: sentence,
-        x: currentX + (Math.random() * 4 - 2),
-        y: currentY + (Math.random() * 4 - 2),
-        width: textWidth,
-        color: color,
-        bgColor: color + '20', // 20% opacity
-        sentenceIdx
-      })
-
-      currentX += textWidth + 8
-      sentenceIdx++
-    }
-
-    return positions
-  }
-
-  const [rightLayout] = useState(calculateRightLayout())
 
   useEffect(() => {
     console.log('🔧 Initializing user ID and color')
@@ -132,14 +41,6 @@ function Marionette() {
     setUserColor(color)
 
     loadMessages()
-  }, [])
-
-  // 자동 스크롤
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setScrollY(prev => prev + 0.5)
-    }, 50)
-    return () => clearInterval(interval)
   }, [])
 
   async function loadMessages() {
@@ -202,186 +103,278 @@ function Marionette() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f5f5f5',
-      position: 'relative',
-      overflow: 'hidden',
-      fontFamily: '"Cardo", serif',
-      display: 'flex'
+      backgroundColor: '#d1d5db',
+      fontFamily: '"D2Coding", monospace',
+      padding: '20px'
     }}>
-      {/* 왼쪽 영역 */}
       <div style={{
-        width: '50%',
-        height: '100vh',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '30px'
-      }}>
-        {/* 왼쪽 위 타이틀 영역 */}
-        <div style={{ marginBottom: 'auto' }}>
+        maxWidth: '1400px',
+        margin: '0 auto',
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gap: '30px',
+        border: '1px solid #000'
+      }}
+      className="md-grid"
+      >
+        {/* 왼쪽 컬럼 */}
+        <div style={{
+          backgroundColor: '#fff',
+          padding: '30px',
+          borderRight: '1px solid #000'
+        }}>
+          {/* 상단 이미지와 메타데이터 */}
+          <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
+            {/* 이미지 플레이스홀더 */}
+            <div style={{
+              width: '96px',
+              height: '96px',
+              border: '1px solid #000',
+              backgroundColor: '#f5f5f5',
+              flexShrink: 0
+            }} />
+
+            {/* 메타데이터 그리드 */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gap: '8px 16px',
+              fontSize: '10px',
+              alignContent: 'start'
+            }}>
+              <span style={{ fontWeight: 'bold' }}>PROJECT:</span>
+              <span>KLEIST / MARIONETTE</span>
+
+              <span style={{ fontWeight: 'bold' }}>DATE:</span>
+              <span>{new Date().toLocaleDateString('ko-KR')}</span>
+
+              <span style={{ fontWeight: 'bold' }}>TYPE:</span>
+              <span>WEB ART / PERFORMANCE</span>
+
+              <span style={{ fontWeight: 'bold' }}>STATUS:</span>
+              <span>LAYER 1/5</span>
+            </div>
+          </div>
+
+          {/* 설명 텍스트 */}
           <div style={{
-            fontSize: '14px',
-            fontFamily: '"D2Coding", monospace',
-            marginBottom: '15px',
-            letterSpacing: '0.5px',
+            fontSize: '11px',
+            lineHeight: '1.8',
+            marginBottom: '30px',
             color: '#000'
           }}>
-            <div>KLEIST / MARIONETTE</div>
-            <div style={{ marginTop: '5px', fontSize: '11px', opacity: 0.6 }}>
-              ÜBER DAS MARIONETTENTHEATER
-            </div>
-            <div style={{ marginTop: '10px', fontSize: '10px', opacity: 0.5 }}>
-              {new Date().toLocaleDateString('ko-KR')}
-            </div>
+            <p style={{ marginBottom: '12px' }}>
+              <span style={{ textDecoration: 'underline' }}>ÜBER DAS MARIONETTENTHEATER</span> —
+              Heinrich von Kleist, 1810
+            </p>
+            <p style={{ marginBottom: '12px' }}>
+              Q: cubic structure, rigidity and definition.<br/>
+              b: base of a cube, built upon it, dynamic system.<br/>
+              H: Mercury, fluidity. Mercury is heavy, dense.<br/>
+              L: Liquid
+            </p>
+            <p>
+              언어가 끈이야. German text as immutable bricks,
+              AI conversations as temporary structures.
+              The breath animates the marionette.
+            </p>
           </div>
 
+          {/* 다이어그램 영역 */}
           <div style={{
-            marginTop: '20px',
-            fontSize: '10px',
-            lineHeight: '1.6',
-            color: '#000',
-            opacity: 0.7,
-            maxWidth: '400px'
+            width: '200px',
+            height: '200px',
+            margin: '30px 0',
+            border: '1px solid #000',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '9px',
+            color: '#00000060'
           }}>
-            Q: cubic structure, rigidity and definition.<br/>
-            b: base of a cube, built upon it, dynamic system.<br/>
-            H: Mercury, fluidity. Mercury is heavy, dense.<br/>
-            L: Liquid
+            DIAGRAM / STRUCTURE
           </div>
-        </div>
 
-        {/* 왼쪽 아래 AI 입력창 */}
-        <div style={{
-          marginTop: 'auto',
-          width: '100%',
-          maxWidth: '450px'
-        }}>
+          {/* 하단 버튼들 */}
           <div style={{
             display: 'flex',
-            gap: '8px',
-            alignItems: 'center'
+            gap: '10px',
+            flexWrap: 'wrap'
           }}>
-            <input
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && ask()}
-              placeholder="INPUT..."
-              disabled={loading}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                fontSize: '10px',
-                border: '1px solid #000',
-                backgroundColor: '#fff',
-                fontFamily: '"D2Coding", monospace',
-                letterSpacing: '0.03em'
-              }}
-            />
-            <button
-              onClick={ask}
-              disabled={loading}
-              style={{
-                padding: '8px 16px',
-                fontSize: '10px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                backgroundColor: '#000',
-                color: '#fff',
-                border: 'none',
-                fontFamily: '"D2Coding", monospace',
-                letterSpacing: '0.5px'
-              }}
-            >
-              {loading ? '...' : 'SEND'}
+            <button style={{
+              padding: '6px 14px',
+              fontSize: '9px',
+              border: '1px solid #000',
+              borderRadius: '20px',
+              backgroundColor: '#fff',
+              cursor: 'pointer',
+              fontFamily: '"D2Coding", monospace'
+            }}>
+              URL 1: READ
+            </button>
+            <button style={{
+              padding: '6px 14px',
+              fontSize: '9px',
+              border: '1px solid #000',
+              borderRadius: '20px',
+              backgroundColor: '#fff',
+              cursor: 'pointer',
+              fontFamily: '"D2Coding", monospace'
+            }}>
+              URL 2: CHAIN
+            </button>
+            <button style={{
+              padding: '6px 14px',
+              fontSize: '9px',
+              border: '1px solid #000',
+              borderRadius: '20px',
+              backgroundColor: '#fff',
+              cursor: 'pointer',
+              fontFamily: '"D2Coding", monospace'
+            }}>
+              URL 3: CONTROL
             </button>
           </div>
+
+          {/* AI 입력창 */}
+          <div style={{
+            marginTop: '40px',
+            paddingTop: '20px',
+            borderTop: '1px solid #00000020'
+          }}>
+            <div style={{
+              display: 'flex',
+              gap: '8px'
+            }}>
+              <input
+                type="text"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && ask()}
+                placeholder="INPUT..."
+                disabled={loading}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  fontSize: '10px',
+                  border: '1px solid #000',
+                  backgroundColor: '#fff',
+                  fontFamily: '"D2Coding", monospace',
+                  letterSpacing: '0.03em'
+                }}
+              />
+              <button
+                onClick={ask}
+                disabled={loading}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '10px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  backgroundColor: '#000',
+                  color: '#fff',
+                  border: 'none',
+                  fontFamily: '"D2Coding", monospace'
+                }}
+              >
+                {loading ? '...' : 'SEND'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 오른쪽 컬럼 */}
+        <div style={{
+          backgroundColor: '#fff',
+          padding: '30px'
+        }}>
+          {/* CCTV 박스 */}
+          <div style={{
+            width: '100%',
+            height: '250px',
+            border: '1px solid #000',
+            backgroundColor: '#f5f5f5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '11px',
+            color: '#00000040',
+            marginBottom: '20px'
+          }}>
+            CCTV STREAM
+          </div>
+
+          {/* 텍스트 블록들 */}
+          <div style={{ fontSize: '11px', lineHeight: '1.8' }}>
+            {KLEIST_SENTENCES.slice(0, 8).map((sentence, idx) => {
+              const color = GERMAN_COLORS[idx % GERMAN_COLORS.length]
+              const words = sentence.split(' ')
+
+              return (
+                <p key={idx} style={{
+                  marginBottom: '4px',
+                  fontFamily: '"Cardo", serif'
+                }}>
+                  {words.map((word, wIdx) => {
+                    const shouldHighlight = Math.random() < 0.15
+                    return (
+                      <span
+                        key={wIdx}
+                        style={{
+                          backgroundColor: shouldHighlight ? color + '40' : 'transparent',
+                          padding: shouldHighlight ? '1px 3px' : '0'
+                        }}
+                      >
+                        {word}{' '}
+                      </span>
+                    )
+                  })}
+                </p>
+              )
+            })}
+          </div>
+
+          {/* AI 메시지들 */}
+          {messages.length > 0 && (
+            <div style={{
+              marginTop: '30px',
+              paddingTop: '20px',
+              borderTop: '1px solid #00000020'
+            }}>
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    marginBottom: '12px',
+                    padding: '8px 12px',
+                    backgroundColor: msg.role === 'ai' ? msg.color + '20' : '#f5f5f5',
+                    fontSize: '10px',
+                    lineHeight: '1.6',
+                    fontFamily: msg.role === 'ai' ? '"Noto Serif KR", serif' : '"D2Coding", monospace'
+                  }}
+                >
+                  <span style={{ opacity: 0.6, fontSize: '9px' }}>
+                    {msg.role === 'ai' ? 'AI' : msg.userId.slice(0, 8)}:
+                  </span>
+                  {' '}
+                  {msg.text}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 오른쪽 영역 - 스크롤 컨텐츠 */}
-      <div
-        ref={containerRef}
-        style={{
-          width: '50%',
-          marginLeft: '50%',
-          minHeight: '200vh',
-          position: 'relative'
-        }}
-      >
-        {rightLayout.map((item) => {
-          if (item.type === 'cctv') {
-            return (
-              <div
-                key={item.id}
-                style={{
-                  position: 'absolute',
-                  left: item.x - window.innerWidth / 2,
-                  top: item.y - scrollY,
-                  width: item.width,
-                  height: item.height,
-                  border: '1px solid #000',
-                  backgroundColor: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '11px',
-                  fontFamily: '"D2Coding", monospace',
-                  color: '#00000040',
-                  transition: 'top 0.1s linear'
-                }}
-              >
-                CCTV STREAM
-              </div>
-            )
+      <style>{`
+        .md-grid {
+          grid-template-columns: 1fr;
+        }
+        @media (min-width: 768px) {
+          .md-grid {
+            grid-template-columns: 1fr 1fr;
           }
-
-          if (item.type === 'image') {
-            return (
-              <div
-                key={item.id}
-                style={{
-                  position: 'absolute',
-                  left: item.x - window.innerWidth / 2,
-                  top: item.y - scrollY,
-                  width: item.width,
-                  height: item.height,
-                  border: '1px solid #00000020',
-                  backgroundColor: '#fff',
-                  transition: 'top 0.1s linear'
-                }}
-              />
-            )
-          }
-
-          if (item.type === 'text') {
-            return (
-              <div
-                key={item.id}
-                style={{
-                  position: 'absolute',
-                  left: item.x - window.innerWidth / 2,
-                  top: item.y - scrollY,
-                  fontSize: '11px',
-                  lineHeight: '1.4',
-                  color: '#000',
-                  fontFamily: '"Cardo", serif',
-                  transition: 'top 0.1s linear',
-                  whiteSpace: 'nowrap',
-                  padding: '3px 6px',
-                  backgroundColor: item.bgColor,
-                  letterSpacing: '0.01em'
-                }}
-              >
-                {item.sentence}
-              </div>
-            )
-          }
-
-          return null
-        })}
-      </div>
+        }
+      `}</style>
     </div>
   )
 }
