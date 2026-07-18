@@ -622,7 +622,7 @@ function Home() {
       ))}
 
       {/* 나머지 CCTV 보기 버튼 - 오른쪽 위 작게 */}
-      <div style={{ position: 'fixed', top: '10px', right: '10px', zIndex: 1001 }}>
+      <div style={{ position: 'fixed', top: '10px', right: '10px', zIndex: 1001, display: 'flex', gap: '10px' }}>
         <Link to="/more-cctvs">
           <button style={{
             padding: '5px 10px',
@@ -634,6 +634,19 @@ function Home() {
             cursor: 'pointer'
           }}>
             다른 CCTV
+          </button>
+        </Link>
+        <Link to="/marionette">
+          <button style={{
+            padding: '5px 10px',
+            fontSize: '12px',
+            backgroundColor: '#dec0f1',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}>
+            Marionette
           </button>
         </Link>
       </div>
