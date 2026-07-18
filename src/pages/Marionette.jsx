@@ -43,56 +43,59 @@ function Marionette() {
 
   const containerRef = useRef(null)
 
-  // 그리드 기반 위치 계산 (10x5 그리드)
-  const calculateGridPositions = () => {
-    const COLS = 10
-    const CELL_WIDTH = window.innerWidth / COLS
-    const CELL_HEIGHT = 80 // 셀 높이
-
+  // 문장 블록 위치 계산 (한 문장 = 한 블록)
+  const calculateBlockPositions = () => {
     const positions = []
-    const totalCells = KLEIST_SENTENCES.length + Math.floor(KLEIST_SENTENCES.length * 0.2) // 20% 빈 공간
+    const ROW_HEIGHT = 60 // 행 높이
+    const PADDING = 20 // 좌우 여백
+    const MAX_WIDTH = window.innerWidth - PADDING * 2
 
-    let row = 0
-    let col = 0
+    let currentY = 100 // 시작 Y 위치
     let sentenceIdx = 0
 
-    for (let i = 0; i < totalCells; i++) {
-      // 20% 확률로 빈 공간 (AI 대화용)
-      const isEmpty = Math.random() < 0.15 && sentenceIdx < KLEIST_SENTENCES.length
+    // AI 대화 블록을 랜덤 위치에 삽입하기 위한 인덱스들
+    const emptySlots = []
+    const totalSlots = Math.floor(KLEIST_SENTENCES.length * 1.2) // 20% 더 많은 슬롯
 
-      if (!isEmpty && sentenceIdx < KLEIST_SENTENCES.length) {
+    // 빈 슬롯 위치 결정
+    for (let i = 0; i < totalSlots - KLEIST_SENTENCES.length; i++) {
+      emptySlots.push(Math.floor(Math.random() * totalSlots))
+    }
+    emptySlots.sort((a, b) => a - b)
+
+    for (let i = 0; i < totalSlots; i++) {
+      // 빈 공간인지 확인
+      if (emptySlots.includes(i)) {
+        positions.push({
+          id: `empty-${i}`,
+          type: 'empty',
+          x: PADDING + (Math.random() * 6 - 3), // ±3px 지글
+          y: currentY + (Math.random() * 6 - 3), // ±3px 지글
+          width: Math.random() * 400 + 200, // 200-600px 랜덤 너비
+          sentenceIdx: -1
+        })
+        currentY += ROW_HEIGHT
+      } else if (sentenceIdx < KLEIST_SENTENCES.length) {
+        // 문장 블록
         positions.push({
           id: `sentence-${sentenceIdx}`,
           type: 'text',
           sentence: KLEIST_SENTENCES[sentenceIdx],
-          x: col * CELL_WIDTH + 10,
-          y: row * CELL_HEIGHT + scrollY,
+          x: PADDING + (Math.random() * 6 - 3), // ±3px 지글
+          y: currentY + (Math.random() * 6 - 3), // ±3px 지글
           color: GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length],
           sentenceIdx
         })
         sentenceIdx++
-      } else if (isEmpty) {
-        positions.push({
-          id: `empty-${i}`,
-          type: 'empty',
-          x: col * CELL_WIDTH + 10,
-          y: row * CELL_HEIGHT + scrollY,
-          sentenceIdx: -1
-        })
-      }
-
-      col++
-      if (col >= COLS) {
-        col = 0
-        row++
+        currentY += ROW_HEIGHT
       }
     }
 
-    console.log('📍 Grid positions calculated:', positions.length)
+    console.log('📍 Block positions calculated:', positions.length)
     return positions
   }
 
-  const [textPositions] = useState(calculateGridPositions())
+  const [textPositions] = useState(calculateBlockPositions())
 
   // 사용자 ID 초기화
   useEffect(() => {
@@ -228,22 +231,22 @@ function Marionette() {
                   position: 'absolute',
                   left: pos.x,
                   top: pos.y - scrollY,
-                  maxWidth: window.innerWidth / 10 - 20,
+                  width: pos.width,
                   backgroundColor: aiMsg.color,
                   color: '#fff',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  fontSize: '10px',
-                  lineHeight: '1.4',
+                  padding: '10px 15px',
+                  borderRadius: '8px',
+                  fontSize: '11px',
+                  lineHeight: '1.5',
                   fontFamily: aiMsg.role === 'ai' ? '"Noto Serif KR", serif' : '"D2Coding", monospace',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                   transition: 'top 0.1s linear'
                 }}
               >
-                <div style={{ fontSize: '8px', opacity: 0.7, marginBottom: '4px' }}>
+                <div style={{ fontSize: '9px', opacity: 0.7, marginBottom: '5px' }}>
                   {aiMsg.userId.substring(0, 8)}...
                 </div>
-                {aiMsg.text.substring(0, 80)}...
+                {aiMsg.text.substring(0, 100)}...
               </div>
             )
           }
@@ -256,13 +259,15 @@ function Marionette() {
                 position: 'absolute',
                 left: pos.x,
                 top: pos.y - scrollY,
-                maxWidth: window.innerWidth / 10 - 20,
                 fontSize: '12px',
                 lineHeight: '1.6',
                 color: pos.color,
                 fontFamily: '"Cardo", serif',
                 transition: 'top 0.1s linear',
-                opacity: (pos.y - scrollY) > -100 && (pos.y - scrollY) < window.innerHeight + 100 ? 1 : 0.3
+                opacity: (pos.y - scrollY) > -100 && (pos.y - scrollY) < window.innerHeight + 100 ? 1 : 0.3,
+                whiteSpace: 'normal',
+                maxWidth: window.innerWidth - 80,
+                wordWrap: 'break-word'
               }}
             >
               {pos.sentence}
