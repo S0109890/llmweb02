@@ -25,9 +25,7 @@ function Home() {
   // 랜덤 색상 생성 함수 (useEffect 전에 정의)
   function getRandomColor() {
     const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-      '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#AAB7B8',
-      '#F1948A', '#85929E', '#A569BD', '#48C9B0', '#F39C12'
+      '#3da35d', '#aec5eb', '#dec0f1', '#59594a', '#e8fccf'
     ]
     return colors[Math.floor(Math.random() * colors.length)]
   }
@@ -627,7 +625,7 @@ function Home() {
           <button style={{
             padding: '5px 10px',
             fontSize: '12px',
-            backgroundColor: '#3498db',
+            backgroundColor: '#3da35d',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
@@ -638,16 +636,45 @@ function Home() {
         </Link>
       </div>
 
-      {/* CCTV 영상만 - 제목/설명 제거 */}
+      {/* CCTV 영상 - 오른쪽 정렬 */}
       {cctvLoading ? (
-        <p style={{ padding: '20px' }}>Loading...</p>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          height: '100vh',
+          width: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#000',
+          color: 'white',
+          padding: '20px'
+        }}>
+          Loading...
+        </div>
       ) : !cctv || !cctv.cctvUrl ? (
-        <p style={{ padding: '20px' }}>CCTV를 불러올 수 없습니다.</p>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          height: '100vh',
+          width: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#000',
+          color: 'white',
+          padding: '20px'
+        }}>
+          CCTV를 불러올 수 없습니다.
+        </div>
       ) : (
         <video
           ref={videoRef}
           muted
           playsInline
+          autoPlay
           style={{
             position: 'fixed',
             top: 0,
@@ -655,7 +682,8 @@ function Home() {
             height: '100vh',
             width: 'auto',
             backgroundColor: '#000',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            zIndex: 1
           }}
         />
       )}
@@ -724,8 +752,8 @@ function Home() {
           bottom: 0,
           left: 0,
           right: 0,
-          backgroundColor: 'white',
-          borderTop: '2px solid #ddd',
+          backgroundColor: '#e8fccf',
+          borderTop: '2px solid #3da35d',
           padding: '10px 20px',
           display: 'flex',
           gap: '10px',
@@ -744,10 +772,11 @@ function Home() {
             flex: 1,
             padding: '10px',
             fontSize: '16px',
-            border: '1px solid #ccc',
+            border: '1px solid #3da35d',
             borderRadius: '4px',
             WebkitAppearance: 'none',
-            touchAction: 'auto'
+            touchAction: 'auto',
+            backgroundColor: 'white'
           }}
         />
         <button
@@ -757,7 +786,7 @@ function Home() {
             padding: '10px 20px',
             fontSize: '16px',
             cursor: loading ? 'not-allowed' : 'pointer',
-            backgroundColor: loading ? '#ccc' : '#007bff',
+            backgroundColor: loading ? '#aec5eb' : '#3da35d',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
