@@ -462,14 +462,16 @@ function Marionette() {
             CCTV STREAM
           </div>
 
-          {/* 텍스트 블록들 - 클라이스트 원문 + AI 대화 섞기 */}
-          <div style={{ fontSize: '11px', lineHeight: '1.8', textAlign: 'left' }}>
-            {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
-              const color = GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length]
-              const words = sentence.split(' ')
-              const elements = []
-
-              // AI 메시지를 user-ai 쌍으로 그룹화
+          {/* 3단 레이어 다이컷 구조 (Tree of Codes 방식) */}
+          <div style={{
+            position: 'relative',
+            fontSize: '11px',
+            lineHeight: '1.8',
+            textAlign: 'left',
+            minHeight: '600px'
+          }}>
+            {/* AI 대화 쌍 준비 */}
+            {(() => {
               const conversationPairs = []
               for (let i = 0; i < messages.length; i++) {
                 if (messages[i].role === 'user' && messages[i + 1]?.role === 'ai') {
@@ -477,72 +479,196 @@ function Marionette() {
                     user: messages[i],
                     ai: messages[i + 1]
                   })
-                  i++ // skip next ai message
+                  i++
                 }
               }
 
-              words.forEach((word, wIdx) => {
-                // 고정된 랜덤 값 사용 (시드 기반)
-                const highlightSeed = (sentenceIdx * 1000 + wIdx) % 100
-                const shouldHighlight = highlightSeed < 15
-
-                // 3%로 대폭 감소 (20% → 3%)
-                const insertConvSeed = (sentenceIdx * 1000 + wIdx) % 100
-                const shouldInsertConv = insertConvSeed < 3 && conversationPairs.length > 0
-
-                // 단어 추가
-                elements.push(
-                  <span
-                    key={`word-${sentenceIdx}-${wIdx}`}
-                    className="word-span"
-                    style={{
-                      backgroundColor: shouldHighlight ? color + '40' : 'transparent',
-                      padding: shouldHighlight ? '1px 3px' : '0',
-                      position: 'relative'
-                    }}
-                  >
-                    {word}{' '}
-                  </span>
-                )
-
-                // 고정된 위치에 AI 대화 삽입 - 더 나은 분산
-                if (shouldInsertConv) {
-                  // 더 나은 분산을 위해 hash 값 사용
-                  const hash = (sentenceIdx * 7919 + wIdx * 6547) % conversationPairs.length
-                  const pair = conversationPairs[hash]
-                  const spaceCount = ((sentenceIdx * wIdx) % 5) + 1 // 1~5 공백
-
-                  elements.push(
-                    <span key={`space-${sentenceIdx}-${wIdx}`} style={{ display: 'inline-block', width: `${spaceCount * 10}px` }} />
-                  )
-                  elements.push(
-                    <span
-                      key={`conv-${sentenceIdx}-${wIdx}`}
-                      style={{
-                        backgroundColor: pair.user.color + '30',
-                        padding: '2px 6px',
-                        borderRadius: '3px',
-                        fontFamily: '"Noto Serif KR", serif',
-                        fontSize: '10px',
-                        marginRight: '4px'
-                      }}
-                    >
-                      {pair.user.text} → {pair.ai.text}
-                    </span>
-                  )
-                }
-              })
-
               return (
-                <p key={sentenceIdx} style={{
-                  marginBottom: '4px',
-                  fontFamily: '"Cardo", serif',
-                  textAlign: 'left'
-                }}>
-                  {elements}
-                </p>
+                <>
+                  {/* 레이어 3 (최하단, z-index: 1) - 블랙 배경 */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    padding: '0',
+                    zIndex: 1,
+                    backgroundColor: '#000'
+                  }}>
+                    {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
+                      const words = sentence.split(' ')
+                      const elements = []
+
+                      words.forEach((word, wIdx) => {
+                        // TODO: 나중에 랜덤 구멍 뚫을 예정
+                        elements.push(
+                          <span
+                            key={`layer3-${sentenceIdx}-${wIdx}`}
+                            style={{
+                              fontFamily: '"Cardo", serif',
+                              fontSize: '11px',
+                              lineHeight: '1.8',
+                              color: '#fff'
+                            }}
+                          >
+                            {word}{' '}
+                          </span>
+                        )
+                      })
+
+                      return (
+                        <p key={sentenceIdx} style={{
+                          marginBottom: '4px',
+                          fontFamily: '"Cardo", serif',
+                          fontSize: '11px',
+                          lineHeight: '1.8'
+                        }}>
+                          {elements}
+                        </p>
+                      )
+                    })}
+                  </div>
+
+                  {/* 레이어 2 (중간, z-index: 2) - AI 대화 */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    padding: '0',
+                    zIndex: 2,
+                    pointerEvents: 'none'
+                  }}>
+                    {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
+                      const words = sentence.split(' ')
+                      const elements = []
+
+                      words.forEach((word, wIdx) => {
+                        const insertConvSeed = (sentenceIdx * 1000 + wIdx) % 100
+                        const shouldShowConv = insertConvSeed < 3 && conversationPairs.length > 0
+
+                        if (shouldShowConv) {
+                          const hash = (sentenceIdx * 7919 + wIdx * 6547) % conversationPairs.length
+                          const pair = conversationPairs[hash]
+
+                          elements.push(
+                            <span
+                              key={`layer2-${sentenceIdx}-${wIdx}`}
+                              style={{
+                                backgroundColor: pair.user.color + '30',
+                                padding: '2px 6px',
+                                borderRadius: '3px',
+                                fontFamily: '"Noto Serif KR", serif',
+                                fontSize: '11px',
+                                lineHeight: '1.8'
+                              }}
+                            >
+                              {pair.user.text} → {pair.ai.text}
+                            </span>
+                          )
+                        } else {
+                          // 투명한 공간 (그리드 유지)
+                          elements.push(
+                            <span
+                              key={`layer2-${sentenceIdx}-${wIdx}`}
+                              style={{
+                                opacity: 0,
+                                fontFamily: '"Cardo", serif',
+                                fontSize: '11px',
+                                lineHeight: '1.8'
+                              }}
+                            >
+                              {word}{' '}
+                            </span>
+                          )
+                        }
+                      })
+
+                      return (
+                        <p key={sentenceIdx} style={{
+                          marginBottom: '4px',
+                          fontFamily: '"Cardo", serif',
+                          fontSize: '11px',
+                          lineHeight: '1.8'
+                        }}>
+                          {elements}
+                        </p>
+                      )
+                    })}
+                  </div>
+
+                  {/* 레이어 1 (최상단, z-index: 3) - 클라이스트 원문, 구멍 뚫린 종이 */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    padding: '0',
+                    zIndex: 3,
+                    backgroundColor: '#fff'
+                  }}>
+                    {KLEIST_SENTENCES.slice(0, 8).map((sentence, sentenceIdx) => {
+                      const color = GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length]
+                      const words = sentence.split(' ')
+                      const elements = []
+
+                      words.forEach((word, wIdx) => {
+                        const cutSeed = (sentenceIdx * 1000 + wIdx) % 100
+                        const isCut = cutSeed < 15
+
+                        if (isCut) {
+                          // 구멍: 배경 투명, 텍스트 투명
+                          elements.push(
+                            <span
+                              key={`layer1-${sentenceIdx}-${wIdx}`}
+                              className="word-span"
+                              style={{
+                                backgroundColor: 'transparent',
+                                color: 'transparent',
+                                fontFamily: '"Cardo", serif',
+                                fontSize: '11px',
+                                lineHeight: '1.8'
+                              }}
+                            >
+                              {word}{' '}
+                            </span>
+                          )
+                        } else {
+                          // 불투명한 종이
+                          elements.push(
+                            <span
+                              key={`layer1-${sentenceIdx}-${wIdx}`}
+                              className="word-span"
+                              style={{
+                                backgroundColor: '#fff',
+                                color: color,
+                                fontFamily: '"Cardo", serif',
+                                fontSize: '11px',
+                                lineHeight: '1.8',
+                                position: 'relative'
+                              }}
+                            >
+                              {word}{' '}
+                            </span>
+                          )
+                        }
+                      })
+
+                      return (
+                        <p key={sentenceIdx} style={{
+                          marginBottom: '4px',
+                          fontFamily: '"Cardo", serif',
+                          fontSize: '11px',
+                          lineHeight: '1.8'
+                        }}>
+                          {elements}
+                        </p>
+                      )
+                    })}
+                  </div>
+                </>
               )
-            })}
+            })()}
           </div>
 
         </div>
