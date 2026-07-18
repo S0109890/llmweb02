@@ -43,52 +43,75 @@ function Marionette() {
 
   const containerRef = useRef(null)
 
-  // 문장 블록 위치 계산 (한 문장 = 한 블록)
+  // 텍스트 너비 계산 함수
+  const measureTextWidth = (text, fontSize = 12) => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    ctx.font = `${fontSize}px Cardo, serif`
+    return ctx.measureText(text).width + 30 // padding 포함
+  }
+
+  // 문장 블록 위치 계산 (실제 텍스트 너비 기반)
   const calculateBlockPositions = () => {
     const positions = []
-    const ROW_HEIGHT = 60 // 행 높이
-    const PADDING = 20 // 좌우 여백
+    const PADDING = 40
+    const LINE_HEIGHT = 70
     const MAX_WIDTH = window.innerWidth - PADDING * 2
 
-    let currentY = 100 // 시작 Y 위치
+    let currentX = PADDING
+    let currentY = 100
     let sentenceIdx = 0
 
-    // AI 대화 블록을 랜덤 위치에 삽입하기 위한 인덱스들
-    const emptySlots = []
-    const totalSlots = Math.floor(KLEIST_SENTENCES.length * 1.2) // 20% 더 많은 슬롯
+    // 모든 문장 배치
+    while (sentenceIdx < KLEIST_SENTENCES.length) {
+      const sentence = KLEIST_SENTENCES[sentenceIdx]
+      const textWidth = measureTextWidth(sentence, 12)
 
-    // 빈 슬롯 위치 결정
-    for (let i = 0; i < totalSlots - KLEIST_SENTENCES.length; i++) {
-      emptySlots.push(Math.floor(Math.random() * totalSlots))
-    }
-    emptySlots.sort((a, b) => a - b)
+      // 화면 너비를 넘으면 다음 줄로
+      if (currentX + textWidth > window.innerWidth - PADDING) {
+        currentX = PADDING
+        currentY += LINE_HEIGHT
+      }
 
-    for (let i = 0; i < totalSlots; i++) {
-      // 빈 공간인지 확인
-      if (emptySlots.includes(i)) {
+      // 20% 확률로 빈 공간 추가
+      if (Math.random() < 0.15 && sentenceIdx > 0) {
+        const emptyWidth = Math.random() * 300 + 200
+        if (currentX + emptyWidth > window.innerWidth - PADDING) {
+          currentX = PADDING
+          currentY += LINE_HEIGHT
+        }
+
         positions.push({
-          id: `empty-${i}`,
+          id: `empty-${sentenceIdx}`,
           type: 'empty',
-          x: PADDING + (Math.random() * 6 - 3), // ±3px 지글
-          y: currentY + (Math.random() * 6 - 3), // ±3px 지글
-          width: Math.random() * 400 + 200, // 200-600px 랜덤 너비
+          x: currentX + (Math.random() * 6 - 3),
+          y: currentY + (Math.random() * 6 - 3),
+          width: emptyWidth,
+          height: 50,
           sentenceIdx: -1
         })
-        currentY += ROW_HEIGHT
-      } else if (sentenceIdx < KLEIST_SENTENCES.length) {
-        // 문장 블록
-        positions.push({
-          id: `sentence-${sentenceIdx}`,
-          type: 'text',
-          sentence: KLEIST_SENTENCES[sentenceIdx],
-          x: PADDING + (Math.random() * 6 - 3), // ±3px 지글
-          y: currentY + (Math.random() * 6 - 3), // ±3px 지글
-          color: GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length],
-          sentenceIdx
-        })
-        sentenceIdx++
-        currentY += ROW_HEIGHT
+        currentX += emptyWidth + 15
       }
+
+      // 다시 체크 (empty 추가 후 위치 변경 가능)
+      if (currentX + textWidth > window.innerWidth - PADDING) {
+        currentX = PADDING
+        currentY += LINE_HEIGHT
+      }
+
+      positions.push({
+        id: `sentence-${sentenceIdx}`,
+        type: 'text',
+        sentence: sentence,
+        x: currentX + (Math.random() * 6 - 3),
+        y: currentY + (Math.random() * 6 - 3),
+        width: textWidth,
+        color: GERMAN_COLORS[sentenceIdx % GERMAN_COLORS.length],
+        sentenceIdx
+      })
+
+      currentX += textWidth + 15 // 문장 간 간격
+      sentenceIdx++
     }
 
     console.log('📍 Block positions calculated:', positions.length)
@@ -232,21 +255,35 @@ function Marionette() {
                   left: pos.x,
                   top: pos.y - scrollY,
                   width: pos.width,
-                  backgroundColor: aiMsg.color,
-                  color: '#fff',
-                  padding: '10px 15px',
-                  borderRadius: '8px',
-                  fontSize: '11px',
-                  lineHeight: '1.5',
+                  minHeight: pos.height,
+                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                  backdropFilter: 'blur(10px)',
+                  border: `1px solid ${aiMsg.color}40`,
+                  color: aiMsg.color,
+                  padding: '12px 18px',
+                  borderRadius: '0',
+                  fontSize: '10px',
+                  lineHeight: '1.6',
                   fontFamily: aiMsg.role === 'ai' ? '"Noto Serif KR", serif' : '"D2Coding", monospace',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  transition: 'top 0.1s linear'
+                  boxShadow: `inset 0 0 0 1px ${aiMsg.color}10, 0 1px 2px rgba(0,0,0,0.05)`,
+                  transition: 'top 0.1s linear, border-color 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center'
                 }}
               >
-                <div style={{ fontSize: '9px', opacity: 0.7, marginBottom: '5px' }}>
-                  {aiMsg.userId.substring(0, 8)}...
+                <div style={{
+                  fontSize: '8px',
+                  opacity: 0.5,
+                  marginBottom: '6px',
+                  fontFamily: '"D2Coding", monospace',
+                  letterSpacing: '0.5px'
+                }}>
+                  {aiMsg.userId.substring(0, 10)}
                 </div>
-                {aiMsg.text.substring(0, 100)}...
+                <div style={{ opacity: 0.8 }}>
+                  {aiMsg.text.substring(0, 120)}...
+                </div>
               </div>
             )
           }
@@ -259,15 +296,19 @@ function Marionette() {
                 position: 'absolute',
                 left: pos.x,
                 top: pos.y - scrollY,
+                width: pos.width,
                 fontSize: '12px',
-                lineHeight: '1.6',
+                lineHeight: '1.8',
                 color: pos.color,
                 fontFamily: '"Cardo", serif',
-                transition: 'top 0.1s linear',
-                opacity: (pos.y - scrollY) > -100 && (pos.y - scrollY) < window.innerHeight + 100 ? 1 : 0.3,
-                whiteSpace: 'normal',
-                maxWidth: window.innerWidth - 80,
-                wordWrap: 'break-word'
+                transition: 'top 0.1s linear, opacity 0.3s ease',
+                opacity: (pos.y - scrollY) > -100 && (pos.y - scrollY) < window.innerHeight + 100 ? 0.95 : 0.2,
+                whiteSpace: 'nowrap',
+                overflow: 'visible',
+                padding: '8px 12px',
+                background: `linear-gradient(90deg, ${pos.color}05 0%, ${pos.color}03 100%)`,
+                borderLeft: `2px solid ${pos.color}30`,
+                backdropFilter: 'blur(20px)'
               }}
             >
               {pos.sentence}
