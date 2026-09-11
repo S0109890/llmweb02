@@ -1,0 +1,182 @@
+/* === Film Cycle: 슬롯 안에서 프레임 세로 순환 === */
+@keyframes filmCycle {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(calc(-100% + var(--frame-h, 100px))); }
+}
+
+/* === Film Slide: 확장 시 가로 슬라이드 === */
+@keyframes filmSlide {
+  0% { transform: translateX(40px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+/* === Drop to Tray: 프레임 저장 드롭 === */
+@keyframes dropToTray {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(0, calc(var(--drop-dist, 300px) * 0.4)) rotate(-6deg) scale(0.9);
+  }
+  70% {
+    transform: translate(0, calc(var(--drop-dist, 300px) * 0.85)) rotate(4deg) scale(0.85);
+  }
+  100% {
+    transform: translate(0, var(--drop-dist, 300px)) rotate(0deg) scale(0.8);
+    opacity: 1;
+  }
+}
+
+/* === Land Bounce: 트레이 착지 === */
+@keyframes landBounce {
+  0% { transform: scale(0.6); opacity: 0.5; }
+  50% { transform: scale(1.15); opacity: 1; }
+  75% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* === Slot Glow: 호버 시 발광 === */
+@keyframes slotGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 255, 255, 0); }
+  50% { box-shadow: 0 0 12px rgba(255, 255, 255, 0.15); }
+}
+
+/* === 필름 스트립 순환 === */
+.film-strip-idle {
+  animation: filmCycle var(--cycle-duration, 4s) linear infinite;
+  will-change: transform;
+}
+
+.film-strip-idle:hover {
+  animation-play-state: paused;
+}
+
+/* === 슬롯 === */
+.film-slot {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #555;
+  background: #1a1a1a;
+  cursor: pointer;
+  transition: opacity 0.3s, box-shadow 0.3s, border-color 0.3s;
+}
+
+.film-slot:hover {
+  border-color: #888;
+  animation: slotGlow 1.5s ease-in-out infinite;
+}
+
+.film-slot.slot-dimmed {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+/* === 슬롯 롤러 (상하 원통) === */
+.slot-roller {
+  height: 6px;
+  background: linear-gradient(
+    180deg,
+    #666 0%,
+    #999 30%,
+    #bbb 50%,
+    #999 70%,
+    #666 100%
+  );
+  flex-shrink: 0;
+}
+
+/* === 스프로켓 홀 (필름 가장자리) === */
+.sprocket-strip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0px,
+    transparent 6px,
+    #333 6px,
+    #333 10px,
+    transparent 10px,
+    transparent 16px
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+.sprocket-strip.left { left: 0; }
+.sprocket-strip.right { right: 0; }
+
+/* === 확장된 필름스트립 오버레이 === */
+.expanded-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.expanded-strip {
+  display: flex;
+  gap: 12px;
+  padding: 30px 20px;
+  overflow-x: auto;
+  max-width: 90vw;
+}
+
+.expanded-frame {
+  flex: 0 0 auto;
+  cursor: pointer;
+  border: 2px solid #555;
+  transition: border-color 0.2s, transform 0.2s;
+  position: relative;
+}
+
+.expanded-frame:hover {
+  border-color: #fff;
+  transform: scale(1.05);
+}
+
+/* === 드롭 애니메이션 === */
+.frame-dropping {
+  position: fixed;
+  z-index: 200;
+  animation: dropToTray 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
+}
+
+/* === 트레이 착지 === */
+.frame-landed {
+  animation: landBounce 0.4s ease-out;
+}
+
+/* === 반응형 === */
+.vending-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  padding: 16px;
+}
+
+@media (max-width: 1024px) {
+  .vending-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .vending-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 8px;
+  }
+}
