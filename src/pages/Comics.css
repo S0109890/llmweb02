@@ -3,16 +3,17 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #f5f0e8;
+  background: #0a0a0a;
   position: relative;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: pan-y;
 }
 
 /* === 스프레드 스크롤 컨테이너 === */
 .comics-track {
   display: flex;
-  height: calc(100vh - 40px);
+  height: calc(100vh - 36px);
   transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   will-change: transform;
 }
@@ -35,52 +36,48 @@
   flex: 1;
   height: 100%;
   overflow: hidden;
-  padding: 8px;
+  padding: 6px;
   box-sizing: border-box;
   position: relative;
 }
 
 .comics-page-half.left {
-  border-right: 1px solid #ddd;
+  border-right: 1px solid #333;
 }
 
 .comics-page-half.right {
-  border-left: 1px solid #ddd;
+  border-left: 1px solid #333;
 }
 
-/* 페이지 번호 */
 .comics-page-num {
   position: absolute;
-  bottom: 6px;
+  bottom: 4px;
   font-size: 7px;
-  color: #bbb;
+  color: #444;
   font-family: 'D2Coding', monospace;
   z-index: 2;
 }
 
-.comics-page-half.left .comics-page-num {
-  left: 10px;
-}
-
-.comics-page-half.right .comics-page-num {
-  right: 10px;
-}
+.comics-page-half.left .comics-page-num { left: 10px; }
+.comics-page-half.right .comics-page-num { right: 10px; }
 
 /* === 페이지 내부 그리드 === */
 .comics-page-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  grid-auto-flow: dense;
   gap: 2px;
   height: 100%;
-  align-content: start;
 }
 
 /* === 만화 프레임 === */
 .comics-frame {
   position: relative;
   overflow: hidden;
-  background: #fafafa;
-  border: 2px solid #222;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  min-height: 0;
 }
 
 .comics-frame img {
@@ -95,7 +92,7 @@
   top: 2px;
   left: 4px;
   font-size: 6px;
-  color: rgba(0,0,0,0.12);
+  color: rgba(255,255,255,0.12);
   z-index: 3;
   pointer-events: none;
   font-family: 'D2Coding', monospace;
@@ -103,56 +100,53 @@
 
 /* === 하단 네비게이션 === */
 .comics-nav {
-  height: 40px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  background: #f5f0e8;
+  gap: 10px;
+  background: #0a0a0a;
 }
 
 .comics-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  border: 1px solid #999;
+  border: 1px solid #555;
   background: transparent;
   cursor: pointer;
   padding: 0;
   transition: background 0.2s, transform 0.2s;
 }
 
-.comics-dot:hover {
-  background: #ccc;
-}
+.comics-dot:hover { background: #444; }
 
 .comics-dot.active {
-  background: #222;
-  border-color: #222;
-  transform: scale(1.3);
+  background: #fff;
+  border-color: #fff;
+  transform: scale(1.4);
 }
 
-/* === 제목 === */
+/* === 제목·카운터 === */
 .comics-reader-title {
   position: absolute;
-  top: 6px;
-  left: 12px;
-  font-size: 8px;
+  top: 4px;
+  left: 10px;
+  font-size: 7px;
   letter-spacing: 0.15em;
-  color: #aaa;
+  color: #444;
   text-transform: uppercase;
   font-family: 'D2Coding', monospace;
   z-index: 10;
   pointer-events: none;
 }
 
-/* === 페이지 카운터 === */
 .comics-page-counter {
   position: absolute;
-  top: 6px;
-  right: 12px;
-  font-size: 8px;
-  color: #aaa;
+  top: 4px;
+  right: 10px;
+  font-size: 7px;
+  color: #444;
   font-family: 'D2Coding', monospace;
   z-index: 10;
   pointer-events: none;
@@ -164,18 +158,17 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #ddd;
+  color: #333;
   font-size: 10px;
   font-family: 'D2Coding', monospace;
 }
 
-/* === 반응형: 모바일은 1페이지 뷰 === */
+/* === 반응형: 모바일 1페이지 === */
 @media (max-width: 700px) {
   .comics-spread {
     flex: 0 0 200vw;
     width: 200vw;
   }
-
   .comics-page-half {
     flex: 0 0 100vw;
     width: 100vw;

@@ -561,7 +561,7 @@ function Home() {
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', padding: '0', margin: '0', backgroundColor: '#fff' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', padding: '0', margin: '0', backgroundColor: 'transparent' }}>
       {/* Canvas for mouse paths */}
       <canvas
         ref={canvasRef}
