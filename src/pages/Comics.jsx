@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { supabase } from '../lib/supabase'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import './Comics.css'
 
 const fixModules = import.meta.glob('../comics/fix/*.{png,jpg,jpeg,webp}', { eager: true })
@@ -9,16 +8,8 @@ const FIXED_FRAMES = Object.entries(fixModules)
   .map(([path, mod], i) => ({
     id: `fix-${String(i + 1).padStart(3, '0')}`,
     src: mod.default,
-    order: i
+    order: i,
   }))
-
-const SIZE_OPTIONS = [
-  { col: 3, label: '1/4' },
-  { col: 4, label: '1/3' },
-  { col: 6, label: '1/2' },
-  { col: 8, label: '2/3' },
-  { col: 12, label: 'full' },
-]
 
 const DEFAULT_COLS = [
   6, 3, 3,
@@ -35,187 +26,196 @@ const DEFAULT_COLS = [
   6, 6,
 ]
 
-function Comics() {
-  const [panels, setPanels] = useState(() =>
-    FIXED_FRAMES.map((frame, i) => ({
-      ...frame,
-      col: DEFAULT_COLS[i] || 4,
-    }))
-  )
-  const [sizeMenu, setSizeMenu] = useState(null)
-  const [justChanged, setJustChanged] = useState(null)
-  const menuRef = useRef(null)
-  const skipNextSync = useRef(false)
+const panels = FIXED_FRAMES.map((frame, i) => ({
+  ...frame,
+  col: DEFAULT_COLS[i] || 4,
+}))
 
-  useEffect(() => {
-    async function loadLayout() {
-      try {
-        const { data, error } = await supabase
-          .from('comic_layout')
-          .select('panels')
-          .eq('id', 'main')
-          .single()
+function groupIntoPages(panels, maxUnits = 36) {
+  const pages = []
+  let cur = []
+  let units = 0
 
-        if (!error && data?.panels?.length) {
-          setPanels(prev => prev.map((p, i) => ({
-            ...p,
-            col: data.panels[i]?.col ?? p.col,
-          })))
-        }
-      } catch (_) {}
+  for (const p of panels) {
+    if (units + p.col > maxUnits && cur.length > 0) {
+      pages.push(cur)
+      cur = []
+      units = 0
     }
+    cur.push(p)
+    units += p.col
+  }
+  if (cur.length > 0) pages.push(cur)
+  return pages
+}
 
-    loadLayout()
-
-    const channel = supabase
-      .channel('comics-layout-sync')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'comic_layout',
-        filter: 'id=eq.main',
-      }, (payload) => {
-        if (skipNextSync.current) {
-          skipNextSync.current = false
-          return
-        }
-        const incoming = payload.new?.panels
-        if (incoming?.length) {
-          setPanels(prev => prev.map((p, i) => ({
-            ...p,
-            col: incoming[i]?.col ?? p.col,
-          })))
-        }
-      })
-      .subscribe()
-
-    return () => supabase.removeChannel(channel)
-  }, [])
-
-  useEffect(() => {
-    function handleClick(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setSizeMenu(null)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  const changeSize = useCallback((index, newCol) => {
-    setPanels(prev => {
-      const next = prev.map((p, i) =>
-        i === index ? { ...p, col: newCol } : p
-      )
-
-      skipNextSync.current = true
-      supabase
-        .from('comic_layout')
-        .upsert({
-          id: 'main',
-          panels: next.map(p => ({ col: p.col })),
-          updated_at: new Date().toISOString(),
-        })
-        .then(() => {})
-        .catch(() => {})
-
-      return next
+function groupIntoSpreads(pages) {
+  const spreads = []
+  for (let i = 0; i < pages.length; i += 2) {
+    spreads.push({
+      left: pages[i],
+      right: pages[i + 1] || null,
     })
+  }
+  return spreads
+}
 
-    setSizeMenu(null)
-    setJustChanged(index)
-    setTimeout(() => setJustChanged(null), 400)
+function Comics() {
+  const [currentSpread, setCurrentSpread] = useState(0)
+  const trackRef = useRef(null)
+  const dragRef = useRef({ startX: 0, startTime: 0, dragging: false, moved: false })
+
+  const pages = useMemo(() => groupIntoPages(panels, 36), [])
+  const spreads = useMemo(() => groupIntoSpreads(pages), [pages])
+
+  const goTo = useCallback((idx) => {
+    const clamped = Math.max(0, Math.min(idx, spreads.length - 1))
+    setCurrentSpread(clamped)
+  }, [spreads.length])
+
+  const onPointerDown = useCallback((e) => {
+    dragRef.current = {
+      startX: e.clientX,
+      startTime: Date.now(),
+      dragging: true,
+      moved: false,
+      currentX: e.clientX,
+    }
+    if (trackRef.current) trackRef.current.classList.add('dragging')
+    e.currentTarget.setPointerCapture(e.pointerId)
   }, [])
 
-  const commaAfter = new Set([5, 12, 16, 20, 24])
+  const onPointerMove = useCallback((e) => {
+    if (!dragRef.current.dragging) return
+    dragRef.current.currentX = e.clientX
+    dragRef.current.moved = true
+
+    const dx = e.clientX - dragRef.current.startX
+    if (trackRef.current) {
+      const base = -currentSpread * window.innerWidth
+      trackRef.current.style.transform = `translateX(${base + dx}px)`
+    }
+  }, [currentSpread])
+
+  const onPointerUp = useCallback((e) => {
+    if (!dragRef.current.dragging) return
+    dragRef.current.dragging = false
+    if (trackRef.current) trackRef.current.classList.remove('dragging')
+
+    const dx = e.clientX - dragRef.current.startX
+    const dt = Date.now() - dragRef.current.startTime
+    const vx = dx / Math.max(dt, 1)
+
+    const threshold = window.innerWidth * 0.15
+    if (dx < -threshold || vx < -0.4) {
+      goTo(currentSpread + 1)
+    } else if (dx > threshold || vx > 0.4) {
+      goTo(currentSpread - 1)
+    } else {
+      goTo(currentSpread)
+    }
+
+    if (trackRef.current) {
+      trackRef.current.style.transform = ''
+    }
+  }, [currentSpread, goTo])
+
+  const translateX = -currentSpread * 100
+
+  let globalIndex = 0
 
   return (
-    <div className="comics-page">
-      <div className="comics-body">
-        <div className="comics-header">
-          <div className="comics-title">Marionettentheater — Comics</div>
-          <div className="comics-count">{panels.length} panels</div>
-        </div>
-
-        <div className="comics-grid">
-          {panels.map((panel, i) => (
-            <ComicFrame
-              key={panel.id}
-              panel={panel}
-              index={i}
-              sizeMenu={sizeMenu}
-              setSizeMenu={setSizeMenu}
-              menuRef={menuRef}
-              changeSize={changeSize}
-              justChanged={justChanged === i}
-              commaAfter={commaAfter.has(i)}
-            />
-          ))}
-        </div>
+    <div className="comics-reader">
+      <div className="comics-reader-title">Marionettentheater — Comics</div>
+      <div className="comics-page-counter">
+        {currentSpread * 2 + 1}–{Math.min(currentSpread * 2 + 2, pages.length)} / {pages.length}
       </div>
 
-      <div className="comics-sql-hint">
-        <details>
-          <summary>Supabase SQL (comic_layout)</summary>
-          <pre>{`CREATE TABLE comic_layout (
-  id TEXT PRIMARY KEY DEFAULT 'main',
-  panels JSONB NOT NULL DEFAULT '[]',
-  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
-);
-INSERT INTO comic_layout (id, panels) VALUES ('main', '[]');
-ALTER TABLE comic_layout ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "open_read" ON comic_layout FOR SELECT USING (true);
-CREATE POLICY "open_update" ON comic_layout FOR UPDATE USING (true);
-CREATE POLICY "open_insert" ON comic_layout FOR INSERT WITH CHECK (true);
-ALTER PUBLICATION supabase_realtime ADD TABLE comic_layout;`}</pre>
-        </details>
+      <div
+        className="comics-track"
+        ref={trackRef}
+        style={{ transform: `translateX(${translateX}vw)` }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        {spreads.map((spread, si) => (
+          <div key={si} className="comics-spread">
+            <PageHalf
+              side="left"
+              panels={spread.left}
+              pageNum={si * 2 + 1}
+              startIndex={(() => {
+                let idx = 0
+                for (let s = 0; s < si; s++) {
+                  idx += (spreads[s].left?.length || 0) + (spreads[s].right?.length || 0)
+                }
+                return idx
+              })()}
+            />
+            {spread.right ? (
+              <PageHalf
+                side="right"
+                panels={spread.right}
+                pageNum={si * 2 + 2}
+                startIndex={(() => {
+                  let idx = 0
+                  for (let s = 0; s < si; s++) {
+                    idx += (spreads[s].left?.length || 0) + (spreads[s].right?.length || 0)
+                  }
+                  return idx + (spread.left?.length || 0)
+                })()}
+              />
+            ) : (
+              <div className="comics-page-half right">
+                <div className="comics-empty-page">fin</div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="comics-nav">
+        {spreads.map((_, i) => (
+          <button
+            key={i}
+            className={`comics-dot ${i === currentSpread ? 'active' : ''}`}
+            onClick={() => goTo(i)}
+          />
+        ))}
       </div>
     </div>
   )
 }
 
-function ComicFrame({ panel, index, sizeMenu, setSizeMenu, menuRef, changeSize, justChanged, commaAfter }) {
-  return (
-    <>
-      <div
-        className={`comics-frame ${justChanged ? 'just-placed' : ''}`}
-        style={{
-          gridColumn: `span ${panel.col}`,
-        }}
-      >
-        <div className="comics-frame-num">
-          {String(index + 1).padStart(3, '0')}
-        </div>
-        <img src={panel.src} alt="" draggable={false} />
-
-        <div
-          className="resize-handle"
-          onClick={(e) => {
-            e.stopPropagation()
-            setSizeMenu(sizeMenu === index ? null : index)
-          }}
-        />
-
-        {sizeMenu === index && (
-          <div className="size-menu" ref={menuRef}>
-            {SIZE_OPTIONS.map(opt => (
-              <button
-                key={opt.col}
-                className={panel.col === opt.col ? 'active' : ''}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  changeSize(index, opt.col)
-                }}
-              >
-                {opt.label} ({opt.col}/12)
-              </button>
-            ))}
-          </div>
-        )}
+function PageHalf({ side, panels, pageNum, startIndex }) {
+  if (!panels || panels.length === 0) {
+    return (
+      <div className={`comics-page-half ${side}`}>
+        <div className="comics-empty-page" />
       </div>
+    )
+  }
 
-      {commaAfter && <div className="comics-comma" />}
-    </>
+  return (
+    <div className={`comics-page-half ${side}`}>
+      <div className="comics-page-grid">
+        {panels.map((panel, i) => (
+          <div
+            key={panel.id}
+            className="comics-frame"
+            style={{ gridColumn: `span ${panel.col}` }}
+          >
+            <div className="comics-frame-num">
+              {String(startIndex + i + 1).padStart(3, '0')}
+            </div>
+            <img src={panel.src} alt="" draggable={false} />
+          </div>
+        ))}
+      </div>
+      <div className="comics-page-num">{pageNum}</div>
+    </div>
   )
 }
 
