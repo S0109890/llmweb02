@@ -1,34 +1,29 @@
-/* === Film Cycle: 슬롯 안에서 프레임 세로 순환 === */
-@keyframes filmCycle {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(calc(-100% + var(--frame-h, 100px))); }
+/* === 원통 회전: 이미지 시퀀스가 감겨 돌아감 === */
+@keyframes cylinderSpin {
+  0% { transform: rotateX(0deg); }
+  100% { transform: rotateX(-360deg); }
 }
 
-/* === Film Slide: 확장 시 가로 슬라이드 === */
-@keyframes filmSlide {
-  0% { transform: translateX(40px); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
+/* === 뮤토스코프: 가로 이미지 시퀀스 스크롤 === */
+@keyframes mutoscopeScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(calc(-100% + var(--viewport-w, 300px))); }
 }
 
-/* === Drop to Tray: 프레임 저장 드롭 === */
+/* === 버튼 펄스 === */
+@keyframes btnPulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(255,255,255,0); }
+  50% { box-shadow: 0 0 8px rgba(255,255,255,0.1); }
+}
+
+/* === 프레임 드롭 === */
 @keyframes dropToTray {
-  0% {
-    transform: translate(0, 0) rotate(0deg) scale(1);
-    opacity: 1;
-  }
-  30% {
-    transform: translate(0, calc(var(--drop-dist, 300px) * 0.4)) rotate(-6deg) scale(0.9);
-  }
-  70% {
-    transform: translate(0, calc(var(--drop-dist, 300px) * 0.85)) rotate(4deg) scale(0.85);
-  }
-  100% {
-    transform: translate(0, var(--drop-dist, 300px)) rotate(0deg) scale(0.8);
-    opacity: 1;
-  }
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  30% { transform: translate(0, calc(var(--drop-dist, 300px) * 0.4)) rotate(-6deg) scale(0.9); }
+  70% { transform: translate(0, calc(var(--drop-dist, 300px) * 0.85)) rotate(4deg) scale(0.85); }
+  100% { transform: translate(0, var(--drop-dist, 300px)) rotate(0deg) scale(0.8); opacity: 1; }
 }
 
-/* === Land Bounce: 트레이 착지 === */
 @keyframes landBounce {
   0% { transform: scale(0.6); opacity: 0.5; }
   50% { transform: scale(1.15); opacity: 1; }
@@ -36,115 +31,226 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* === Slot Glow: 호버 시 발광 === */
-@keyframes slotGlow {
-  0%, 100% { box-shadow: 0 0 0 rgba(255, 255, 255, 0); }
-  50% { box-shadow: 0 0 12px rgba(255, 255, 255, 0.15); }
+/* === 자판기 본체 === */
+.vm-body {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 30%, #151515 100%);
+  border: 2px solid #444;
+  border-radius: 4px;
+  box-shadow: 0 0 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
+  position: relative;
+  overflow: hidden;
 }
 
-/* === 필름 스트립 순환 === */
-.film-strip-idle {
-  animation: filmCycle var(--cycle-duration, 4s) linear infinite;
+/* === 메인 레이아웃: 좌 이미지열 | 중앙 뷰포트+원통 | 우 이미지열 === */
+.vm-main {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0;
+  min-height: 500px;
+}
+
+/* === 이미지 버튼 열 (좌/우) === */
+.vm-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 8px;
+  background: linear-gradient(180deg, #1a1a1a, #111);
+}
+
+/* === 이미지 버튼 (4:3, 작은 크기) === */
+.vm-btn {
+  width: 72px;
+  height: 54px;
+  border: 1px solid #444;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #1a1a1a;
+}
+
+.vm-btn:hover {
+  border-color: #999;
+  animation: btnPulse 1.2s ease-in-out infinite;
+}
+
+.vm-btn.active {
+  border-color: #fff;
+  box-shadow: 0 0 10px rgba(255,255,255,0.2);
+}
+
+.vm-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vm-btn .placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+/* === 중앙 영역 === */
+.vm-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  gap: 16px;
+  border-left: 1px solid #333;
+  border-right: 1px solid #333;
+  position: relative;
+}
+
+/* === 퍼포레이션 패턴 (장식) === */
+.vm-perf {
+  width: 100%;
+  height: 20px;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 6px,
+    #222 6px,
+    #222 8px,
+    transparent 8px,
+    transparent 14px
+  );
+}
+
+/* === 뮤토스코프 뷰포트 (본체 내 창) === */
+.vm-viewport {
+  width: 100%;
+  max-width: 400px;
+  aspect-ratio: 16 / 9;
+  border: 2px solid #555;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+.vm-viewport-label {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  font-size: 8px;
+  color: #444;
+  letter-spacing: 0.15em;
+  z-index: 2;
+  text-transform: uppercase;
+  font-family: 'D2Coding', monospace;
+}
+
+.vm-viewport-strip {
+  display: flex;
+  height: 100%;
   will-change: transform;
 }
 
-.film-strip-idle:hover {
-  animation-play-state: paused;
+.vm-viewport-strip.playing {
+  animation: mutoscopeScroll var(--scroll-duration, 5s) linear infinite;
 }
 
-/* === 슬롯 === */
-.film-slot {
+.vm-viewport-frame {
+  flex: 0 0 var(--viewport-w, 100%);
+  height: 100%;
   position: relative;
+}
+
+.vm-viewport-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* === 원통형 릴 === */
+.vm-cylinder-wrap {
+  width: 160px;
+  height: 100px;
+  perspective: 400px;
+  margin: 8px 0;
+}
+
+.vm-cylinder {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: cylinderSpin 6s linear infinite;
+}
+
+.vm-cylinder-face {
+  position: absolute;
+  width: 100%;
+  height: 20px;
+  backface-visibility: hidden;
   overflow: hidden;
-  border: 1px solid #555;
-  background: #1a1a1a;
-  cursor: pointer;
-  transition: opacity 0.3s, box-shadow 0.3s, border-color 0.3s;
 }
 
-.film-slot:hover {
-  border-color: #888;
-  animation: slotGlow 1.5s ease-in-out infinite;
+.vm-cylinder-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.film-slot.slot-dimmed {
-  opacity: 0.25;
-  pointer-events: none;
-}
-
-/* === 슬롯 롤러 (상하 원통) === */
-.slot-roller {
-  height: 6px;
-  background: linear-gradient(
-    180deg,
-    #666 0%,
-    #999 30%,
-    #bbb 50%,
-    #999 70%,
-    #666 100%
-  );
+/* === 장식 요소 === */
+.vm-screw {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid #444;
+  background: radial-gradient(circle at 30% 30%, #555, #333);
   flex-shrink: 0;
 }
 
-/* === 스프로켓 홀 (필름 가장자리) === */
-.sprocket-strip {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 8px;
-  background: repeating-linear-gradient(
-    180deg,
-    transparent 0px,
-    transparent 6px,
-    #333 6px,
-    #333 10px,
-    transparent 10px,
-    transparent 16px
-  );
-  z-index: 2;
-  pointer-events: none;
+.vm-circle {
+  width: 60px;
+  height: 60px;
+  border: 1px solid #444;
+  border-radius: 50%;
+  background: radial-gradient(circle, #222, #1a1a1a);
 }
 
-.sprocket-strip.left { left: 0; }
-.sprocket-strip.right { right: 0; }
-
-/* === 확장된 필름스트립 오버레이 === */
-.expanded-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 100;
+/* === 셀렉트 바 (뷰포트 내 프레임 선택) === */
+.vm-select-bar {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(0,0,0,0.6);
+  border-top: 1px solid #333;
 }
 
-.expanded-strip {
-  display: flex;
-  gap: 12px;
-  padding: 30px 20px;
-  overflow-x: auto;
-  max-width: 90vw;
-}
-
-.expanded-frame {
-  flex: 0 0 auto;
+.vm-select-frame {
+  width: 48px;
+  height: 36px;
+  border: 1px solid #555;
   cursor: pointer;
-  border: 2px solid #555;
-  transition: border-color 0.2s, transform 0.2s;
-  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+  flex-shrink: 0;
 }
 
-.expanded-frame:hover {
+.vm-select-frame:hover {
   border-color: #fff;
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
-/* === 드롭 애니메이션 === */
+/* === 트레이 === */
+.vm-tray {
+  border-top: 2px solid #333;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #181818, #111);
+  min-height: 80px;
+}
+
+/* === 드롭 중 === */
 .frame-dropping {
   position: fixed;
   z-index: 200;
@@ -152,31 +258,38 @@
   pointer-events: none;
 }
 
-/* === 트레이 착지 === */
 .frame-landed {
   animation: landBounce 0.4s ease-out;
 }
 
 /* === 반응형 === */
-.vending-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
-  padding: 16px;
-}
+@media (max-width: 700px) {
+  .vm-btn {
+    width: 56px;
+    height: 42px;
+  }
 
-@media (max-width: 1024px) {
-  .vending-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    padding: 12px;
+  .vm-viewport {
+    max-width: 100%;
+  }
+
+  .vm-cylinder-wrap {
+    width: 120px;
+    height: 80px;
   }
 }
 
-@media (max-width: 600px) {
-  .vending-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-    padding: 8px;
+@media (max-width: 480px) {
+  .vm-main {
+    grid-template-columns: auto 1fr;
+  }
+
+  .vm-column.right {
+    display: none;
+  }
+
+  .vm-btn {
+    width: 48px;
+    height: 36px;
   }
 }

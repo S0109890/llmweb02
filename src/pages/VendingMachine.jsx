@@ -1,30 +1,104 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import './VendingMachine.css'
 
-const COLORS = [
-  '#3da35d', '#aec5eb', '#dec0f1', '#59594a', '#e8fccf',
-  '#c97b84', '#a2d2ff', '#ffd6a5', '#caffbf', '#bdb2ff',
-  '#ffc6ff', '#fdffb6', '#9bf6ff', '#f1c0e8', '#cfbaf0',
-  '#a3c4f3', '#90dbf4', '#8eecf5', '#98f5e1', '#b9fbc0',
-  '#fbf8cc', '#fde4cf', '#ffcfd2', '#d0f4de'
-]
+import seesaw01 from '../mid/seesaw_01.png'
+import seesaw02 from '../mid/seesaw_02.png'
+import seesaw03 from '../mid/seesaw_03.png'
 
-const FILM_STRIPS = Array.from({ length: 24 }, (_, i) => ({
+const TEST_IMAGES = [seesaw01, seesaw02, seesaw03]
+
+const STRIPS = Array.from({ length: 8 }, (_, i) => ({
   id: `strip-${i}`,
-  frames: Array.from({ length: 6 }, (_, j) => ({
-    id: `${i}-${j}`,
-    color: COLORS[(i * 6 + j) % COLORS.length],
-    src: null
-  }))
+  thumb: TEST_IMAGES[i % TEST_IMAGES.length],
+  frames: TEST_IMAGES,
+  label: String(i + 1).padStart(2, '0')
 }))
+
+const CYLINDER_FACES = 8
+const CYLINDER_RADIUS = 40
+
+function CylinderReel({ images, paused }) {
+  const faces = useMemo(() => {
+    const angle = 360 / CYLINDER_FACES
+    return Array.from({ length: CYLINDER_FACES }, (_, i) => ({
+      src: images[i % images.length],
+      transform: `rotateX(${i * angle}deg) translateZ(${CYLINDER_RADIUS}px)`
+    }))
+  }, [images])
+
+  return (
+    <div className="vm-cylinder-wrap">
+      <div className="vm-cylinder" style={paused ? { animationPlayState: 'paused' } : undefined}>
+        {faces.map((face, i) => (
+          <div key={i} className="vm-cylinder-face" style={{ transform: face.transform }}>
+            <img src={face.src} alt="" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MutoscopeViewport({ frames, active, onSelectFrame }) {
+  const viewportRef = useRef(null)
+  const [vpWidth, setVpWidth] = useState(300)
+
+  useEffect(() => {
+    if (!viewportRef.current) return
+    const obs = new ResizeObserver(([entry]) => {
+      setVpWidth(entry.contentRect.width)
+    })
+    obs.observe(viewportRef.current)
+    return () => obs.disconnect()
+  }, [])
+
+  const totalW = vpWidth * frames.length
+  const scrollDuration = `${frames.length * 1.6}s`
+
+  return (
+    <div className="vm-viewport" ref={viewportRef}>
+      <div className="vm-viewport-label">mutoscope</div>
+      <div
+        className={`vm-viewport-strip ${active ? 'playing' : ''}`}
+        style={{
+          '--viewport-w': `${vpWidth}px`,
+          '--scroll-duration': scrollDuration,
+          width: `${totalW}px`
+        }}
+      >
+        {frames.map((src, i) => (
+          <div
+            key={i}
+            className="vm-viewport-frame"
+            style={{ '--viewport-w': `${vpWidth}px` }}
+            onClick={() => onSelectFrame(i)}
+          >
+            <img src={src} alt="" />
+          </div>
+        ))}
+      </div>
+
+      <div className="vm-select-bar">
+        {frames.map((src, i) => (
+          <div
+            key={i}
+            className="vm-select-frame"
+            onClick={() => onSelectFrame(i)}
+          >
+            <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function VendingMachine() {
   const [activeStrip, setActiveStrip] = useState(null)
   const [droppingFrame, setDroppingFrame] = useState(null)
   const [savedFrames, setSavedFrames] = useState([])
   const [userId, setUserId] = useState('')
-
   const trayRef = useRef(null)
 
   useEffect(() => {
@@ -86,35 +160,35 @@ function VendingMachine() {
     return () => supabase.removeChannel(channel)
   }, [userId])
 
-  const handleSlotClick = useCallback((stripId) => {
+  const currentStrip = STRIPS.find(s => s.id === activeStrip) || STRIPS[0]
+
+  const handleBtnClick = useCallback((stripId) => {
     if (droppingFrame) return
-    setActiveStrip(prev => prev === stripId ? null : stripId)
+    setActiveStrip(stripId)
   }, [droppingFrame])
 
-  const handleFrameSelect = useCallback((strip, frame, frameIndex, e) => {
-    e.stopPropagation()
-    if (droppingFrame) return
+  const handleFrameSelect = useCallback((frameIndex) => {
+    if (droppingFrame || !currentStrip) return
 
-    const rect = e.currentTarget.getBoundingClientRect()
+    const frame = {
+      id: `${currentStrip.id}-${frameIndex}`,
+      src: currentStrip.frames[frameIndex],
+      color: '#333'
+    }
+
     const trayRect = trayRef.current?.getBoundingClientRect()
     if (!trayRect) return
 
-    const dropDist = trayRect.top - rect.top
-
     setDroppingFrame({
       frame,
-      strip,
+      strip: currentStrip,
       frameIndex,
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-      dropDist
+      dropDist: 200
     })
 
     supabase.from('vending_selections').insert({
       user_id: userId,
-      strip_id: strip.id,
+      strip_id: currentStrip.id,
       frame_id: frame.id,
       frame_index: frameIndex,
       image_url: frame.src,
@@ -122,11 +196,11 @@ function VendingMachine() {
     }).then(({ error }) => {
       if (error) console.error('Save error:', error)
     })
-  }, [droppingFrame, userId])
+  }, [droppingFrame, currentStrip, userId])
 
   const handleDropEnd = useCallback(() => {
     if (droppingFrame) {
-      const { frame, strip, frameIndex } = droppingFrame
+      const { frame, strip } = droppingFrame
       setSavedFrames(prev => {
         const alreadySaved = prev.some(f => f.frameId === frame.id && f.stripId === strip.id)
         if (alreadySaved) return prev
@@ -141,8 +215,10 @@ function VendingMachine() {
       })
     }
     setDroppingFrame(null)
-    setActiveStrip(null)
   }, [droppingFrame, userId])
+
+  const leftStrips = STRIPS.slice(0, 4)
+  const rightStrips = STRIPS.slice(4, 8)
 
   return (
     <div style={{
@@ -154,205 +230,110 @@ function VendingMachine() {
       alignItems: 'center',
       padding: '20px'
     }}>
-      {/* 자판기 본체 */}
-      <div style={{
-        width: '100%',
-        maxWidth: '960px',
-        background: 'linear-gradient(180deg, #2a2a2a 0%, #1e1e1e 50%, #151515 100%)',
-        border: '2px solid #444',
-        borderRadius: '4px',
-        boxShadow: '0 0 40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
+      <div className="vm-body">
         {/* 헤더 */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '12px 20px',
+          padding: '10px 16px',
           borderBottom: '1px solid #333',
           background: 'linear-gradient(90deg, #1a1a1a, #222, #1a1a1a)'
         }}>
-          <div style={{
-            fontSize: '11px',
-            letterSpacing: '0.2em',
-            color: '#888',
-            textTransform: 'uppercase'
-          }}>
-            Vending Machine
+          <div style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#666', textTransform: 'uppercase' }}>
+            Marionettentheater — Vending Machine
           </div>
-          <div style={{
-            fontSize: '10px',
-            color: '#555',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: '#3da35d',
-              display: 'inline-block'
-            }} />
-            SAVED: {savedFrames.length}
+          <div style={{ fontSize: '9px', color: '#444', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#3da35d', display: 'inline-block' }} />
+            {savedFrames.length}
           </div>
         </div>
 
-        {/* 장식 나사 */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          padding: '0 12px',
-          height: '16px',
-          alignItems: 'center'
-        }}>
-          {[0, 1, 2, 3].map(i => (
-            <div key={i} style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              border: '1px solid #444',
-              background: 'radial-gradient(circle at 30% 30%, #555, #333)'
-            }} />
-          ))}
+        {/* 나사 장식 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 12px' }}>
+          {[0, 1, 2, 3].map(i => <div key={i} className="vm-screw" />)}
         </div>
 
-        {/* 슬롯 그리드 */}
-        <div className="vending-grid">
-          {FILM_STRIPS.map((strip, stripIdx) => (
-            <div
-              key={strip.id}
-              className={`film-slot ${activeStrip && activeStrip !== strip.id ? 'slot-dimmed' : ''}`}
-              onClick={() => handleSlotClick(strip.id)}
-              style={{
-                aspectRatio: '3 / 4',
-                display: 'flex',
-                flexDirection: 'column',
-                borderRadius: '2px'
-              }}
-            >
-              {/* 상단 롤러 */}
-              <div className="slot-roller" />
-
-              {/* 스프로켓 홀 */}
-              <div className="sprocket-strip left" />
-              <div className="sprocket-strip right" />
-
-              {/* 필름 프레임 영역 */}
-              <div style={{
-                flex: 1,
-                overflow: 'hidden',
-                position: 'relative',
-                padding: '0 10px'
-              }}>
-                <div
-                  className="film-strip-idle"
-                  style={{
-                    '--cycle-duration': `${3 + (stripIdx % 5) * 0.7}s`,
-                    '--frame-h': '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    animationDelay: `${stripIdx * -0.5}s`
-                  }}
-                >
-                  {/* 프레임을 2번 반복하여 매끄러운 루프 */}
-                  {[...strip.frames, ...strip.frames].map((frame, fIdx) => (
-                    <div
-                      key={`${frame.id}-${fIdx}`}
-                      style={{
-                        width: '100%',
-                        aspectRatio: '1',
-                        flexShrink: 0,
-                        marginBottom: '2px'
-                      }}
-                    >
-                      {frame.src ? (
-                        <img
-                          src={frame.src}
-                          alt=""
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                        />
-                      ) : (
-                        <div style={{
-                          width: '100%',
-                          height: '100%',
-                          backgroundColor: frame.color,
-                          opacity: 0.8
-                        }} />
-                      )}
-                    </div>
-                  ))}
+        {/* 메인: 좌 버튼열 | 중앙 뷰포트+원통 | 우 버튼열 */}
+        <div className="vm-main">
+          {/* 좌측 열 */}
+          <div className="vm-column left">
+            {leftStrips.map(strip => (
+              <div
+                key={strip.id}
+                className={`vm-btn ${activeStrip === strip.id ? 'active' : ''}`}
+                onClick={() => handleBtnClick(strip.id)}
+              >
+                <img src={strip.thumb} alt="" />
+                <div style={{
+                  position: 'absolute', bottom: '2px', right: '3px',
+                  fontSize: '7px', color: 'rgba(255,255,255,0.3)',
+                  fontFamily: '"D2Coding", monospace'
+                }}>
+                  {strip.label}
                 </div>
               </div>
+            ))}
+            <div className="vm-circle" style={{ alignSelf: 'center', marginTop: '8px' }} />
+          </div>
 
-              {/* 하단 롤러 */}
-              <div className="slot-roller" />
+          {/* 중앙 */}
+          <div className="vm-center">
+            <div className="vm-perf" />
 
-              {/* 슬롯 번호 */}
-              <div style={{
-                position: 'absolute',
-                bottom: '8px',
-                right: '10px',
-                fontSize: '8px',
-                color: '#444',
-                fontFamily: '"D2Coding", monospace'
-              }}>
-                {String(stripIdx + 1).padStart(2, '0')}
+            <CylinderReel
+              images={currentStrip.frames}
+              paused={!!droppingFrame}
+            />
+
+            <MutoscopeViewport
+              frames={currentStrip.frames}
+              active={!droppingFrame}
+              onSelectFrame={handleFrameSelect}
+            />
+
+            <div className="vm-perf" />
+          </div>
+
+          {/* 우측 열 */}
+          <div className="vm-column right">
+            {rightStrips.map(strip => (
+              <div
+                key={strip.id}
+                className={`vm-btn ${activeStrip === strip.id ? 'active' : ''}`}
+                onClick={() => handleBtnClick(strip.id)}
+              >
+                <img src={strip.thumb} alt="" />
+                <div style={{
+                  position: 'absolute', bottom: '2px', right: '3px',
+                  fontSize: '7px', color: 'rgba(255,255,255,0.3)',
+                  fontFamily: '"D2Coding", monospace'
+                }}>
+                  {strip.label}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+            <div className="vm-screw" style={{ alignSelf: 'center', marginTop: 'auto' }} />
+          </div>
         </div>
 
-        {/* 장식 나사 (하단) */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          padding: '0 12px',
-          height: '16px',
-          alignItems: 'center'
-        }}>
-          {[0, 1, 2, 3].map(i => (
-            <div key={i} style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              border: '1px solid #444',
-              background: 'radial-gradient(circle at 30% 30%, #555, #333)'
-            }} />
-          ))}
+        {/* 하단 나사 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 12px' }}>
+          {[0, 1, 2, 3].map(i => <div key={i} className="vm-screw" />)}
         </div>
 
-        {/* 수집 트레이 */}
-        <div
-          ref={trayRef}
-          style={{
-            borderTop: '2px solid #333',
-            padding: '16px 20px',
-            background: 'linear-gradient(180deg, #181818, #111)',
-            minHeight: '100px'
-          }}
-        >
+        {/* 트레이 */}
+        <div className="vm-tray" ref={trayRef}>
           <div style={{
-            fontSize: '8px',
-            letterSpacing: '0.15em',
-            color: '#444',
-            marginBottom: '10px',
-            textTransform: 'uppercase'
+            fontSize: '8px', letterSpacing: '0.15em', color: '#444',
+            marginBottom: '8px', textTransform: 'uppercase'
           }}>
             Selection Tray
           </div>
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            overflowX: 'auto',
-            paddingBottom: '8px'
-          }}>
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px' }}>
             {savedFrames.length === 0 ? (
-              <div style={{ fontSize: '10px', color: '#333' }}>
-                click a slot, then select a frame
+              <div style={{ fontSize: '9px', color: '#333' }}>
+                이미지를 선택하세요
               </div>
             ) : (
               savedFrames.map((frame, i) => (
@@ -360,26 +341,14 @@ function VendingMachine() {
                   key={frame.id}
                   className={i === savedFrames.length - 1 ? 'frame-landed' : ''}
                   style={{
-                    width: '52px',
-                    height: '52px',
-                    flexShrink: 0,
-                    border: '1px solid #333',
-                    borderRadius: '2px',
-                    overflow: 'hidden'
+                    width: '48px', height: '36px', flexShrink: 0,
+                    border: '1px solid #333', overflow: 'hidden'
                   }}
                 >
                   {frame.imageUrl ? (
-                    <img
-                      src={frame.imageUrl}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
+                    <img src={frame.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <div style={{
-                      width: '100%',
-                      height: '100%',
-                      backgroundColor: frame.color
-                    }} />
+                    <div style={{ width: '100%', height: '100%', backgroundColor: frame.color }} />
                   )}
                 </div>
               ))
@@ -388,139 +357,25 @@ function VendingMachine() {
         </div>
       </div>
 
-      {/* 확장 오버레이 */}
-      {activeStrip && (
-        <div
-          className="expanded-overlay"
-          onClick={() => setActiveStrip(null)}
-        >
-          {/* 닫기 */}
-          <div
-            onClick={() => setActiveStrip(null)}
-            style={{
-              position: 'absolute',
-              top: '20px',
-              right: '24px',
-              fontSize: '14px',
-              color: '#666',
-              cursor: 'pointer',
-              fontFamily: '"D2Coding", monospace',
-              letterSpacing: '0.1em'
-            }}
-          >
-            CLOSE [ESC]
-          </div>
-
-          {/* 스트립 ID */}
-          <div style={{
-            fontSize: '10px',
-            color: '#555',
-            letterSpacing: '0.15em',
-            marginBottom: '16px',
-            textTransform: 'uppercase'
-          }}>
-            Strip {activeStrip.replace('strip-', '')} — select a frame
-          </div>
-
-          {/* 가로 필름 스트립 */}
-          <div
-            className="expanded-strip"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 스프로켓 상단 */}
-            <div style={{
-              position: 'absolute',
-              top: '12px',
-              left: '20px',
-              right: '20px',
-              height: '8px',
-              background: 'repeating-linear-gradient(90deg, transparent 0px, transparent 12px, #333 12px, #333 18px, transparent 18px, transparent 30px)',
-              pointerEvents: 'none'
-            }} />
-
-            {FILM_STRIPS.find(s => s.id === activeStrip)?.frames.map((frame, fIdx) => (
-              <div
-                key={frame.id}
-                className="expanded-frame"
-                onClick={(e) => handleFrameSelect(
-                  FILM_STRIPS.find(s => s.id === activeStrip),
-                  frame,
-                  fIdx,
-                  e
-                )}
-                style={{
-                  width: 'min(120px, 15vw)',
-                  height: 'min(120px, 15vw)',
-                  animation: `filmSlide 0.4s ease-out ${fIdx * 0.08}s both`
-                }}
-              >
-                {frame.src ? (
-                  <img
-                    src={frame.src}
-                    alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                ) : (
-                  <div style={{
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: frame.color
-                  }} />
-                )}
-                <div style={{
-                  position: 'absolute',
-                  bottom: '4px',
-                  right: '4px',
-                  fontSize: '8px',
-                  color: 'rgba(255,255,255,0.4)',
-                  fontFamily: '"D2Coding", monospace'
-                }}>
-                  {String(fIdx + 1).padStart(2, '0')}
-                </div>
-              </div>
-            ))}
-
-            {/* 스프로켓 하단 */}
-            <div style={{
-              position: 'absolute',
-              bottom: '12px',
-              left: '20px',
-              right: '20px',
-              height: '8px',
-              background: 'repeating-linear-gradient(90deg, transparent 0px, transparent 12px, #333 12px, #333 18px, transparent 18px, transparent 30px)',
-              pointerEvents: 'none'
-            }} />
-          </div>
-        </div>
-      )}
-
-      {/* 드롭 애니메이션 오버레이 */}
+      {/* 드롭 애니메이션 */}
       {droppingFrame && (
         <div
           className="frame-dropping"
           style={{
-            left: droppingFrame.left,
-            top: droppingFrame.top,
-            width: droppingFrame.width,
-            height: droppingFrame.height,
+            left: '50%',
+            top: '50%',
+            width: '72px',
+            height: '54px',
+            marginLeft: '-36px',
             '--drop-dist': `${droppingFrame.dropDist}px`
           }}
           onAnimationEnd={handleDropEnd}
         >
-          {droppingFrame.frame.src ? (
-            <img
-              src={droppingFrame.frame.src}
-              alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              backgroundColor: droppingFrame.frame.color,
-              border: '2px solid #fff'
-            }} />
-          )}
+          <img
+            src={droppingFrame.frame.src}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
         </div>
       )}
     </div>
