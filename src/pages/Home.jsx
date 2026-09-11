@@ -653,38 +653,41 @@ function Home() {
         </Link>
       </div>
 
-      {/* CCTV 영상 - 하단 고정 */}
+      {/* CCTV 영상 - 풀스크린 배경 */}
       {cctvLoading ? (
         <div style={{
           position: 'fixed',
-          bottom: 50,
+          top: 0,
           left: 0,
-          right: 0,
-          height: '30vh',
+          width: '100%',
+          height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#000',
           color: '#666',
           fontSize: '10px',
-          fontFamily: '"D2Coding", monospace'
+          fontFamily: '"D2Coding", monospace',
+          zIndex: 1
         }}>
           loading...
         </div>
       ) : !cctv || !cctv.cctvUrl ? (
         <div style={{
           position: 'fixed',
-          bottom: 50,
+          top: 0,
           left: 0,
-          right: 0,
-          height: '30vh',
+          width: '100%',
+          height: '100%',
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-end',
           justifyContent: 'center',
+          paddingBottom: '60px',
           backgroundColor: '#000',
           color: '#666',
           fontSize: '10px',
-          fontFamily: '"D2Coding", monospace'
+          fontFamily: '"D2Coding", monospace',
+          zIndex: 1
         }}>
           no signal
         </div>
@@ -696,10 +699,10 @@ function Home() {
           autoPlay
           style={{
             position: 'fixed',
-            bottom: 50,
+            top: 0,
             left: 0,
             width: '100%',
-            height: '30vh',
+            height: '100%',
             objectFit: 'cover',
             backgroundColor: '#000',
             pointerEvents: 'none',
@@ -708,16 +711,17 @@ function Home() {
         />
       )}
 
-      {/* AI 채팅 메시지 - 상단, 흑백, 글자 작게 */}
+      {/* AI 채팅 메시지 - CCTV 위에 투명 오버레이 */}
       <div style={{
         position: 'fixed',
         top: '0',
         left: '0',
         right: '0',
-        bottom: 'calc(30vh + 50px)',
+        bottom: '50px',
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
+        justifyContent: 'flex-end',
         gap: '3px',
         padding: '30px 16px 10px',
         zIndex: 5

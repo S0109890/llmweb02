@@ -8,56 +8,51 @@ const IMAGES = Object.entries(fixModules)
   .map(([, mod]) => mod.default)
 
 const PAGES = [
-  // Page 1 — 7 panels (3 rows)
   [
-    [{ w: 2 }, { w: 1 }, { w: 1 }],
-    [{ w: 1 }, { w: 1 }],
-    [{ w: 1 }, { w: 1 }],
+    { col: 6, row: 2 }, { col: 3, row: 1 }, { col: 3, row: 1 },
+    { col: 3, row: 1 }, { col: 3, row: 1 },
+    { col: 6, row: 1 }, { col: 6, row: 1 },
   ],
-  // Page 2 — 8 panels
   [
-    [{ w: 1 }, { w: 1 }],
-    [{ w: 1 }, { w: 1 }, { w: 1 }, { w: 1 }],
-    [{ w: 2 }, { w: 1 }],
+    { col: 6, row: 1 }, { col: 6, row: 1 },
+    { col: 3, row: 1 }, { col: 3, row: 1 }, { col: 3, row: 1 }, { col: 3, row: 1 },
+    { col: 8, row: 1 }, { col: 4, row: 1 },
   ],
-  // Page 3 — 6 panels
   [
-    [{ w: 1 }, { w: 1 }, { w: 1 }],
-    [{ w: 2 }, { w: 1 }],
-    [{ w: 1 }],
+    { col: 4, row: 1 }, { col: 4, row: 1 }, { col: 4, row: 1 },
+    { col: 8, row: 2 }, { col: 4, row: 1 }, { col: 4, row: 1 },
   ],
-  // Page 4 — 8 panels
   [
-    [{ w: 1 }, { w: 1 }],
-    [{ w: 2 }, { w: 1 }, { w: 1 }],
-    [{ w: 1 }, { w: 1 }, { w: 1 }],
+    { col: 6, row: 1 }, { col: 6, row: 1 },
+    { col: 6, row: 1 }, { col: 3, row: 1 }, { col: 3, row: 1 },
+    { col: 4, row: 1 }, { col: 4, row: 1 }, { col: 4, row: 1 },
   ],
 ]
 
 function Comics() {
   const [currentSpread, setCurrentSpread] = useState(0)
-  const [expandedPanel, setExpandedPanel] = useState(null)
+  const [expanded, setExpanded] = useState(new Set())
   const trackRef = useRef(null)
-  const dragRef = useRef({ startX: 0, dragging: false })
+  const dragRef = useRef({ startX: 0, dragging: false, didDrag: false })
 
   const spreads = useMemo(() => {
     const result = []
     let imgIdx = 0
-    for (let pi = 0; pi < PAGES.length; pi += 2) {
-      const buildPage = (pageDef) => {
-        if (!pageDef) return null
-        return pageDef.map(row =>
-          row.map(cell => ({
-            ...cell,
+    for (let i = 0; i < PAGES.length; i += 2) {
+      const leftPage = PAGES[i].map(def => ({
+        ...def,
+        src: IMAGES[imgIdx] || null,
+        globalIdx: imgIdx++,
+      }))
+      const rightDefs = PAGES[i + 1]
+      const rightPage = rightDefs
+        ? rightDefs.map(def => ({
+            ...def,
             src: IMAGES[imgIdx] || null,
             globalIdx: imgIdx++,
           }))
-        )
-      }
-      result.push({
-        left: buildPage(PAGES[pi]),
-        right: buildPage(PAGES[pi + 1]),
-      })
+        : null
+      result.push({ left: leftPage, right: rightPage })
     }
     return result
   }, [])
@@ -69,20 +64,20 @@ function Comics() {
   }, [spreads.length])
 
   const onPointerDown = useCallback((e) => {
-    if (e.target.closest('.comics-frame')) return
     dragRef.current = {
       startX: e.clientX,
       startTime: Date.now(),
       dragging: true,
+      didDrag: false,
     }
     if (trackRef.current) trackRef.current.classList.add('dragging')
-    e.currentTarget.setPointerCapture(e.pointerId)
   }, [])
 
   const onPointerMove = useCallback((e) => {
     if (!dragRef.current.dragging) return
     const dx = e.clientX - dragRef.current.startX
-    if (trackRef.current) {
+    if (Math.abs(dx) > 8) dragRef.current.didDrag = true
+    if (dragRef.current.didDrag && trackRef.current) {
       const base = -currentSpread * window.innerWidth
       trackRef.current.style.transform = `translateX(${base + dx}px)`
     }
@@ -93,22 +88,31 @@ function Comics() {
     dragRef.current.dragging = false
     if (trackRef.current) trackRef.current.classList.remove('dragging')
 
-    const dx = e.clientX - dragRef.current.startX
-    const dt = Date.now() - dragRef.current.startTime
-    const vx = dx / Math.max(dt, 1)
+    if (dragRef.current.didDrag) {
+      const dx = e.clientX - dragRef.current.startX
+      const dt = Date.now() - dragRef.current.startTime
+      const vx = dx / Math.max(dt, 1)
 
-    if (dx < -window.innerWidth * 0.15 || vx < -0.4) {
-      goTo(currentSpread + 1)
-    } else if (dx > window.innerWidth * 0.15 || vx > 0.4) {
-      goTo(currentSpread - 1)
+      if (dx < -window.innerWidth * 0.15 || vx < -0.4) {
+        goTo(currentSpread + 1)
+      } else if (dx > window.innerWidth * 0.15 || vx > 0.4) {
+        goTo(currentSpread - 1)
+      }
+      if (trackRef.current) trackRef.current.style.transform = ''
+    } else {
+      const frame = e.target.closest('.comics-frame')
+      if (frame) {
+        const idx = parseInt(frame.dataset.idx, 10)
+        if (!isNaN(idx)) {
+          setExpanded(prev => {
+            const next = new Set(prev)
+            next.add(idx)
+            return next
+          })
+        }
+      }
     }
-
-    if (trackRef.current) trackRef.current.style.transform = ''
   }, [currentSpread, goTo])
-
-  const togglePanel = useCallback((globalIdx) => {
-    setExpandedPanel(prev => prev === globalIdx ? null : globalIdx)
-  }, [])
 
   return (
     <div className="comics-reader">
@@ -128,11 +132,11 @@ function Comics() {
       >
         {spreads.map((spread, si) => (
           <div key={si} className="comics-spread">
-            <PageHalf side="left" rows={spread.left} pageNum={si * 2 + 1}
-              expandedPanel={expandedPanel} onToggle={togglePanel} />
+            <PageHalf side="left" panels={spread.left} pageNum={si * 2 + 1}
+              expanded={expanded} />
             {spread.right ? (
-              <PageHalf side="right" rows={spread.right} pageNum={si * 2 + 2}
-                expandedPanel={expandedPanel} onToggle={togglePanel} />
+              <PageHalf side="right" panels={spread.right} pageNum={si * 2 + 2}
+                expanded={expanded} />
             ) : (
               <div className="comics-page-half right">
                 <div className="comics-empty-page">fin</div>
@@ -155,33 +159,27 @@ function Comics() {
   )
 }
 
-function PageHalf({ side, rows, pageNum, expandedPanel, onToggle }) {
+function PageHalf({ side, panels, pageNum, expanded }) {
   return (
     <div className={`comics-page-half ${side}`}>
-      <div className="comics-page-rows">
-        {rows.map((row, ri) => {
-          const totalW = row.reduce((s, c) => s + c.w, 0)
-          const hasExpanded = row.some(c => c.globalIdx === expandedPanel)
+      <div className="comics-page-grid">
+        {panels.map((panel) => {
+          const isExpanded = expanded.has(panel.globalIdx)
+          const rowSpan = isExpanded ? panel.row + 1 : panel.row
           return (
-            <div key={ri} className={`comics-row ${hasExpanded ? 'has-expanded' : ''}`}>
-              {row.map((panel) => {
-                const isExpanded = panel.globalIdx === expandedPanel
-                const basePct = (panel.w / totalW) * 100
-                const flexBasis = isExpanded ? '85%' : `${basePct}%`
-                return (
-                  <div
-                    key={panel.globalIdx}
-                    className={`comics-frame ${isExpanded ? 'expanded' : ''}`}
-                    style={{ flexBasis, minWidth: isExpanded ? '85%' : undefined }}
-                    onClick={() => onToggle(panel.globalIdx)}
-                  >
-                    <div className="comics-frame-num">
-                      {String(panel.globalIdx + 1).padStart(3, '0')}
-                    </div>
-                    {panel.src && <img src={panel.src} alt="" draggable={false} />}
-                  </div>
-                )
-              })}
+            <div
+              key={panel.globalIdx}
+              className={`comics-frame ${isExpanded ? 'expanded' : ''}`}
+              data-idx={panel.globalIdx}
+              style={{
+                gridColumn: `span ${panel.col}`,
+                gridRow: `span ${rowSpan}`,
+              }}
+            >
+              <div className="comics-frame-num">
+                {String(panel.globalIdx + 1).padStart(3, '0')}
+              </div>
+              {panel.src && <img src={panel.src} alt="" draggable={false} />}
             </div>
           )
         })}
