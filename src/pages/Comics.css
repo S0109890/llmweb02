@@ -1,0 +1,268 @@
+/* === 만화 페이지 === */
+.comics-page {
+  min-height: 100vh;
+  background: #f5f0e8;
+  font-family: 'D2Coding', 'Courier New', monospace;
+  padding: 20px;
+}
+
+.comics-body {
+  max-width: 960px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+}
+
+.comics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.comics-title {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #999;
+  text-transform: uppercase;
+}
+
+.comics-count {
+  font-size: 9px;
+  color: #bbb;
+}
+
+/* === 만화 그리드: CSS Grid 기반, 12열 === */
+.comics-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  padding: 6px;
+  background: #fff;
+}
+
+/* === 만화 프레임 === */
+.comics-frame {
+  position: relative;
+  overflow: hidden;
+  background: #fafafa;
+  border: 2px solid #222;
+  min-height: 80px;
+}
+
+.comics-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.comics-frame-num {
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  font-size: 7px;
+  color: rgba(0,0,0,0.15);
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* === 빈 프레임 === */
+.comics-frame.empty {
+  border: 2px dashed #ccc;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comics-frame.empty:hover {
+  border-color: #888;
+  background: #f0f0f0;
+}
+
+.comics-frame-plus {
+  color: #ccc;
+  font-size: 24px;
+  user-select: none;
+}
+
+/* === 크기 조절 핸들 === */
+.comics-frame .resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.comics-frame:hover .resize-handle {
+  opacity: 1;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #999;
+  border-bottom: 2px solid #999;
+}
+
+/* === 크기 선택 메뉴 === */
+.size-menu {
+  position: absolute;
+  bottom: 24px;
+  right: 4px;
+  background: #fff;
+  border: 1px solid #ddd;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 10;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.size-menu button {
+  padding: 4px 10px;
+  font-size: 9px;
+  font-family: 'D2Coding', monospace;
+  border: 1px solid #eee;
+  background: #fafafa;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.size-menu button:hover {
+  background: #222;
+  color: #fff;
+  border-color: #222;
+}
+
+.size-menu button.active {
+  background: #222;
+  color: #fff;
+}
+
+/* === 쉼표 === */
+.comics-comma {
+  grid-column: 1 / -1;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comics-comma::before {
+  content: ',';
+  font-size: 28px;
+  color: #ddd;
+  font-family: Georgia, serif;
+}
+
+/* === 하단 picker === */
+.comics-picker {
+  border-top: 1px solid #eee;
+  padding: 12px 16px;
+  background: #fafafa;
+}
+
+.comics-picker-label {
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: #aaa;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.comics-picker-grid {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.comics-picker-item {
+  width: 60px;
+  height: 45px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.comics-picker-item:hover {
+  border-color: #222;
+  transform: scale(1.05);
+}
+
+.comics-picker-item.selected {
+  border-color: #222;
+  border-width: 2px;
+}
+
+.comics-picker-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* === 넣기 애니메이션 === */
+@keyframes framePlace {
+  0% { transform: scale(0.85); opacity: 0; }
+  60% { transform: scale(1.03); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.comics-frame.just-placed img {
+  animation: framePlace 0.35s ease-out;
+}
+
+/* === 드롭존 표시 === */
+.comics-frame.dropzone {
+  border-color: #222;
+  border-style: solid;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 6px,
+    rgba(0,0,0,0.03) 6px,
+    rgba(0,0,0,0.03) 12px
+  );
+}
+
+.comics-frame.dropzone::after {
+  content: 'place';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 9px;
+  color: #999;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* === 반응형 === */
+@media (max-width: 700px) {
+  .comics-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .comics-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

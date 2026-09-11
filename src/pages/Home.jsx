@@ -561,7 +561,7 @@ function Home() {
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', padding: '0', paddingBottom: '80px', margin: '0' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', padding: '0', margin: '0', backgroundColor: '#fff' }}>
       {/* Canvas for mouse paths */}
       <canvas
         ref={canvasRef}
@@ -626,63 +626,67 @@ function Home() {
         <Link to="/more-cctvs">
           <button style={{
             padding: '5px 10px',
-            fontSize: '12px',
-            backgroundColor: '#3da35d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
+            fontSize: '10px',
+            backgroundColor: '#000',
+            color: '#fff',
+            border: '1px solid #333',
+            borderRadius: '2px',
+            cursor: 'pointer',
+            fontFamily: '"D2Coding", monospace'
           }}>
-            다른 CCTV
+            CCTV
           </button>
         </Link>
         <Link to="/marionette">
           <button style={{
             padding: '5px 10px',
-            fontSize: '12px',
-            backgroundColor: '#dec0f1',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
+            fontSize: '10px',
+            backgroundColor: '#000',
+            color: '#fff',
+            border: '1px solid #333',
+            borderRadius: '2px',
+            cursor: 'pointer',
+            fontFamily: '"D2Coding", monospace'
           }}>
             Marionette
           </button>
         </Link>
       </div>
 
-      {/* CCTV 영상 - 오른쪽 정렬 */}
+      {/* CCTV 영상 - 하단 고정 */}
       {cctvLoading ? (
         <div style={{
           position: 'fixed',
-          top: 0,
+          bottom: 50,
+          left: 0,
           right: 0,
-          height: '100vh',
-          width: 'auto',
+          height: '30vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#000',
-          color: 'white',
-          padding: '20px'
+          color: '#666',
+          fontSize: '10px',
+          fontFamily: '"D2Coding", monospace'
         }}>
-          Loading...
+          loading...
         </div>
       ) : !cctv || !cctv.cctvUrl ? (
         <div style={{
           position: 'fixed',
-          top: 0,
+          bottom: 50,
+          left: 0,
           right: 0,
-          height: '100vh',
-          width: 'auto',
+          height: '30vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#000',
-          color: 'white',
-          padding: '20px'
+          color: '#666',
+          fontSize: '10px',
+          fontFamily: '"D2Coding", monospace'
         }}>
-          CCTV를 불러올 수 없습니다.
+          no signal
         </div>
       ) : (
         <video
@@ -692,10 +696,11 @@ function Home() {
           autoPlay
           style={{
             position: 'fixed',
-            top: 0,
-            right: 0,
-            height: '100vh',
-            width: 'auto',
+            bottom: 50,
+            left: 0,
+            width: '100%',
+            height: '30vh',
+            objectFit: 'cover',
             backgroundColor: '#000',
             pointerEvents: 'none',
             zIndex: 1
@@ -703,60 +708,40 @@ function Home() {
         />
       )}
 
-      {/* AI 채팅 메시지 (오른쪽 정렬, 자동 크기) */}
+      {/* AI 채팅 메시지 - 상단, 흑백, 글자 작게 */}
       <div style={{
         position: 'fixed',
         top: '0',
-        bottom: '80px',
-        left: '20px',
-        right: '20px',
+        left: '0',
+        right: '0',
+        bottom: 'calc(30vh + 50px)',
         overflowY: 'auto',
         display: 'flex',
-        flexDirection: 'row-reverse',
-        flexWrap: 'wrap',
-        alignContent: 'flex-start',
-        gap: '10px',
-        pointerEvents: 'none',
-        paddingTop: '20px',
-        paddingBottom: '20px'
+        flexDirection: 'column',
+        gap: '3px',
+        padding: '30px 16px 10px',
+        zIndex: 5
       }}>
         {messages.map((msg, idx) => (
           <div
             key={idx}
             style={{
-              position: 'relative',
-              pointerEvents: 'auto',
-              maxWidth: 'calc(100% - 40px)',
-              display: 'inline-block'
+              backgroundColor: msg.role === 'user' ? '#000' : '#fff',
+              color: msg.role === 'user' ? '#fff' : '#000',
+              border: msg.role === 'user' ? 'none' : '1px solid #ddd',
+              padding: '4px 8px',
+              fontSize: window.innerWidth <= 768 ? '6px' : '8px',
+              fontFamily: '"D2Coding", monospace',
+              lineHeight: '1.4',
+              wordWrap: 'break-word',
+              whiteSpace: 'pre-wrap',
+              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '80%',
             }}
           >
-            {/* 반투명 배경 */}
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: msg.color,
-              opacity: 0.5,
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-            }} />
-            {/* 불투명 텍스트 */}
-            <div style={{
-              position: 'relative',
-              color: 'white',
-              padding: '10px 15px',
-              wordWrap: 'break-word',
-              fontWeight: msg.role === 'user' ? 'bold' : 'normal',
-              fontSize: window.innerWidth <= 768 ? '12px' : '16px',
-              textAlign: 'right',
-              whiteSpace: 'pre-wrap'
-            }}>
-              {msg.text}
-            </div>
+            {msg.text}
           </div>
-        )).reverse()}
+        ))}
       </div>
 
       {/* AI 채팅 입력창 (제일 아래 고정) */}
@@ -767,13 +752,15 @@ function Home() {
           bottom: 0,
           left: 0,
           right: 0,
-          backgroundColor: '#e8fccf',
-          borderTop: '2px solid #3da35d',
-          padding: '10px 20px',
+          backgroundColor: '#fff',
+          borderTop: '1px solid #ddd',
+          padding: '8px 16px',
           display: 'flex',
-          gap: '10px',
+          gap: '8px',
           zIndex: 10001,
-          touchAction: 'auto'
+          touchAction: 'auto',
+          height: '50px',
+          boxSizing: 'border-box'
         }}
       >
         <input
@@ -781,35 +768,38 @@ function Home() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && ask()}
-          placeholder="질문을 입력하세요..."
+          placeholder="..."
           disabled={loading}
           style={{
             flex: 1,
-            padding: '10px',
-            fontSize: '16px',
-            border: '1px solid #3da35d',
-            borderRadius: '4px',
+            padding: '6px 10px',
+            fontSize: '10px',
+            fontFamily: '"D2Coding", monospace',
+            border: '1px solid #ddd',
+            borderRadius: '0',
             WebkitAppearance: 'none',
             touchAction: 'auto',
-            backgroundColor: 'white'
+            backgroundColor: '#fff',
+            color: '#000'
           }}
         />
         <button
           onClick={ask}
           disabled={loading}
           style={{
-            padding: '10px 20px',
-            fontSize: '16px',
+            padding: '6px 16px',
+            fontSize: '10px',
+            fontFamily: '"D2Coding", monospace',
             cursor: loading ? 'not-allowed' : 'pointer',
-            backgroundColor: loading ? '#aec5eb' : '#3da35d',
-            color: 'white',
+            backgroundColor: loading ? '#ccc' : '#000',
+            color: '#fff',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '0',
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent'
           }}
         >
-          {loading ? '처리 중...' : '전송'}
+          {loading ? '...' : 'send'}
         </button>
       </div>
     </div>
